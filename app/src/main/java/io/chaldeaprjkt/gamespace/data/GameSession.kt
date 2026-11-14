@@ -58,7 +58,6 @@ class GameSession @Inject constructor(
         state = SessionState(
             packageName = sessionName,
             autoBrightness = systemSettings.autoBrightness,
-            statusbarBrightness = systemSettings.statusbarBrightness,
             headsup = systemSettings.headsup,
             threeScreenshot = systemSettings.threeScreenshot,
             ringerMode = audioManager.ringerModeInternal,
@@ -68,7 +67,6 @@ class GameSession @Inject constructor(
         )
         if (appSettings.noAutoBrightness) {
             systemSettings.autoBrightness = false
-            systemSettings.statusbarBrightness = false
         }
         if (appSettings.danmakuNotification) {
             systemSettings.headsup = false
@@ -94,7 +92,6 @@ class GameSession @Inject constructor(
         val orig = state?.copy() ?: return
         if (appSettings.noAutoBrightness) {
             orig.autoBrightness?.let { systemSettings.autoBrightness = it }
-            orig.statusbarBrightness?.let { systemSettings.statusbarBrightness = it }
         }
         if (appSettings.danmakuNotification) {
             orig.headsup?.let { systemSettings.headsup = it }
