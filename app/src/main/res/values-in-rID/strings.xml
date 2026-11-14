@@ -136,8 +136,6 @@
     <string name="cd_caller_photo">Foto penelepon</string>
     <string name="cd_dismiss">Abaikan</string>
     <string name="cd_edit_tiles">Edit ubin</string>
-    <string name="cd_collapse">Ciutkan</string>
-    <string name="cd_expand">Luaskan</string>
     <!-- Game Optimization -->
     <string name="game_optimization_title">Optimalisasi Peluncuran</string>
     <string name="game_memory_management_title">Manajemen Memori Cerdas</string>

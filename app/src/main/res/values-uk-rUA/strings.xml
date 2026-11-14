@@ -136,8 +136,6 @@
     <string name="cd_caller_photo">Фото абонента</string>
     <string name="cd_dismiss">Відхилити</string>
     <string name="cd_edit_tiles">Редагувати плитки</string>
-    <string name="cd_collapse">Згорнути</string>
-    <string name="cd_expand">Розгорнути</string>
     <!-- Game Optimization -->
     <string name="game_optimization_title">Оптимізація запуску</string>
     <string name="game_memory_management_title">Інтелектуальне управління пам\'яттю</string>

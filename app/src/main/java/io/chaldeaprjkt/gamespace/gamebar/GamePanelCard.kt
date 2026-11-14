@@ -42,6 +42,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.*
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.*
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
@@ -61,10 +62,15 @@ import androidx.compose.ui.graphics.painter.*
 import androidx.compose.ui.hapticfeedback.*
 import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.*
@@ -77,6 +83,7 @@ import io.chaldeaprjkt.gamespace.gamebar.brightness.*
 import io.chaldeaprjkt.gamespace.gamebar.fps.*
 import io.chaldeaprjkt.gamespace.gamebar.tiles.*
 import io.chaldeaprjkt.gamespace.settings.SettingsActivity
+import io.chaldeaprjkt.gamespace.ui.theme.*
 import io.chaldeaprjkt.gamespace.utils.GameModeUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -91,6 +98,15 @@ private val RoundedTileShape = RoundedCornerShape(100f)
 
 private val TAG = "GamePanelCard"
 
+internal val PanelShape = RoundedCornerShape(26.dp)
+private val CardShape = RoundedCornerShape(18.dp)
+private val TileLabel = Color(0xFFD9D6DC)
+private val TILE_SIZE = 48.dp
+private val TILE_LABEL_GAP = 6.dp
+private val TILE_ROW_GAP = 10.dp
+private val TILE_LABEL_LINE = 12.sp
+private val BRIGHTNESS_HEIGHT = 44.dp
+
 @Composable
 fun GamePanelCard(
     appSettings: AppSettings,
@@ -101,20 +117,31 @@ fun GamePanelCard(
     gameModeUtils: GameModeUtils,
     systemSettings: SystemSettings,
     tileRepository: TileRepository,
+    panelWidth: Dp,
+    twoColumns: Boolean,
+    onClose: () -> Unit,
     maxHeight: Dp = Dp.Unspecified,
 ) {
-
-    val panelWidth = 300.dp
+    val context = LocalContext.current
+    val colors = neonColors()
 
     val initialMode = remember {
         fromSystemGameMode(gameModeUtils.activeGame?.mode ?: GameManager.GAME_MODE_STANDARD)
     }
     var selectedMode by remember { mutableStateOf(initialMode) }
-    var headerExpanded by remember { mutableStateOf(false) }
+    val gameLabel = remember {
+        val packageName = appSettings.activeGamePackage ?: gameModeUtils.activeGame?.packageName
+        packageName?.let {
+            runCatching {
+                val pm = context.packageManager
+                pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString()
+            }.getOrNull()
+        }.orEmpty()
+    }
 
     val time = rememberCurrentTime()
 
-    Card(
+    Box(
         modifier = Modifier
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -122,17 +149,25 @@ fun GamePanelCard(
                 onClick = {}
             )
             .width(panelWidth)
-            .wrapContentHeight(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            .clip(PanelShape)
+            .border(1.dp, colors.accent.copy(alpha = 0.28f), PanelShape)
+            .neonCard(colors, glowAtStart = true, alpha = 0.94f)
+            .drawBehind {
+                drawMarkOutline(
+                    left = size.width - 196.dp.toPx(),
+                    top = size.height - 125.dp.toPx(),
+                    width = 250.dp.toPx(),
+                    stroke = 1.75.dp.toPx(),
+                    color = colors.accent,
+                    alpha = 0.25f,
+                )
+            },
     ) {
         GamePanelContent(
             appSettings = appSettings,
             musicController = musicController,
             apps = apps,
-            headerExpanded = headerExpanded,
-            onToggleExpand = { headerExpanded = !headerExpanded },
+            gameLabel = gameLabel,
             selectedMode = selectedMode,
             onModeChange = { mode ->
                 selectedMode = mode
@@ -142,6 +177,8 @@ fun GamePanelCard(
             fpsInteractor = fpsInteractor,
             time = time,
             tileRepository = tileRepository,
+            twoColumns = twoColumns,
+            onClose = onClose,
             maxHeight = maxHeight,
         )
     }
@@ -152,19 +189,18 @@ fun GamePanelContent(
     appSettings: AppSettings,
     musicController: MusicController,
     apps: List<AppInfo>,
-    headerExpanded: Boolean,
-    onToggleExpand: () -> Unit,
+    gameLabel: String,
     selectedMode: GameMode,
     onModeChange: (GameMode) -> Unit,
     interactor: BrightnessInteractor,
     fpsInteractor: FpsInteractor,
     time: String,
     tileRepository: TileRepository,
+    twoColumns: Boolean,
+    onClose: () -> Unit,
     maxHeight: Dp = Dp.Unspecified,
 ) {
     var isEditing by remember { mutableStateOf(false) }
-
-    val scrollState = rememberScrollState()
 
     val resolvedMaxHeight = if (maxHeight != Dp.Unspecified) maxHeight else {
         (LocalConfiguration.current.screenHeightDp - 64).dp
@@ -174,41 +210,20 @@ fun GamePanelContent(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = resolvedMaxHeight)
-            .verticalScroll(scrollState)
-            .padding(top = if (isEditing) 4.dp else 12.dp, start = 12.dp, bottom = 12.dp, end = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (!isEditing) {
             HeaderInfoBar(
-                modifier = Modifier.fillMaxWidth(),
-                headerExpanded = headerExpanded,
+                modifier = Modifier.padding(start = 16.dp, end = 10.dp, top = 8.dp),
+                gameLabel = gameLabel,
                 time = time,
-                currentMode = selectedMode,
-                onModeChange = onModeChange,
-                fpsInteractor = fpsInteractor,
-                onToggleExpand = onToggleExpand,
+                compact = !twoColumns,
                 onEditClick = { isEditing = true },
-                tileRepository = tileRepository
-            )
-
-            if (tileRepository.isMusicPlayerVisible.value) {
-                MusicPlayerCard(musicController = musicController)
-            }
-
-            if (apps.isEmpty() == false) {
-                QuickStartAppSidebar(apps = apps)
-            }
-
-            PanelContent(
-                interactor = interactor,
-                tileRepository = tileRepository,
-                currentMode = selectedMode,
-                onEditClick = { isEditing = true },
-                modifier = Modifier.fillMaxWidth()
+                onClose = onClose,
             )
 
             val crosshairTile = tileRepository.allAvailableTiles.find { it.id == "crosshair" }
             val crosshairEnabled = crosshairTile?.observeEnabled()?.value ?: appSettings.crosshairEnabled
+            val scrollState = rememberScrollState()
 
             LaunchedEffect(crosshairEnabled) {
                 if (crosshairEnabled) {
@@ -216,12 +231,84 @@ fun GamePanelContent(
                 }
             }
 
-            if (crosshairEnabled) {
-                CrosshairSettingsCard(appSettings = appSettings)
+            val telemetry: @Composable ColumnScope.() -> Unit = {
+                InfoRow(
+                    fpsInteractor = fpsInteractor,
+                    fpsTracked = tileRepository.isFpsGraphVisible.value,
+                )
+
+                if (tileRepository.isFpsGraphVisible.value) {
+                    FpsGraph(interactor = fpsInteractor)
+                }
+
+                GameModeSelector(
+                    selectedMode = selectedMode,
+                    onModeSelected = onModeChange
+                )
+
+                if (tileRepository.isMusicPlayerVisible.value) {
+                    MusicPlayerCard(musicController = musicController)
+                }
+            }
+
+            val controls: @Composable ColumnScope.() -> Unit = {
+                PanelContent(
+                    interactor = interactor,
+                    tileRepository = tileRepository,
+                    currentMode = selectedMode,
+                    onEditClick = { isEditing = true },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (apps.isEmpty() == false) {
+                    QuickStartAppSidebar(apps = apps)
+                }
+
+                if (crosshairEnabled) {
+                    CrosshairSettingsCard(appSettings = appSettings)
+                }
+            }
+
+            if (twoColumns) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(236f)
+                            .verticalScroll(rememberScrollState())
+                            .padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        content = telemetry
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(264f)
+                            .verticalScroll(scrollState)
+                            .padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        content = controls
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(scrollState)
+                        .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    telemetry()
+                    controls()
+                }
             }
         } else {
             TileEditPanel(
                 tileRepository = tileRepository,
+                wide = twoColumns,
                 onClose = { isEditing = false }
             )
         }
@@ -236,83 +323,75 @@ fun PanelContent(
     onEditClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = neonColors()
     val tiles = tileRepository.tiles
     val tilesPerPage = 8
     val pages by remember {
         derivedStateOf { tiles.chunked(tilesPerPage) }
     }
     val pagerState = rememberPagerState { pages.size }
+    val tileHeight = TILE_SIZE + TILE_LABEL_GAP + with(LocalDensity.current) { TILE_LABEL_LINE.toDp() }
 
     Column(
-        modifier = modifier.padding(start = 4.dp, end = 4.dp, bottom = 0.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         if (tileRepository.isBrightnessVisible.value) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-                    .padding(start = 8.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BrightnessSlider(interactor = interactor)
-            }
+            BrightnessSlider(interactor = interactor)
         }
 
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxWidth(),
-            key = { pageIndex -> "page_$pageIndex" }
-        ) { pageIndex ->
-            val pageTiles = pages[pageIndex]
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxWidth(),
+                key = { pageIndex -> "page_$pageIndex" }
+            ) { pageIndex ->
+                val pageTiles = pages[pageIndex]
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(168.dp)
-                    .padding(horizontal = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top)
-            ) {
-                pageTiles.chunked(4).forEach { rowTiles ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        rowTiles.forEach { tile ->
-                            key(tile.id) {
-                                TileButton(
-                                    tile = tile,
-                                    modifier = Modifier.weight(1f)
-                                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(tileHeight * 2 + TILE_ROW_GAP),
+                    verticalArrangement = Arrangement.spacedBy(TILE_ROW_GAP, Alignment.Top)
+                ) {
+                    pageTiles.chunked(4).forEach { rowTiles ->
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            rowTiles.forEach { tile ->
+                                key(tile.id) {
+                                    TileButton(
+                                        tile = tile,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
                             }
-                        }
-                        repeat(4 - rowTiles.size) {
-                            Spacer(modifier = Modifier.weight(1f))
+                            repeat(4 - rowTiles.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
                     }
                 }
             }
-        }
 
-        if (pages.size > 1) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                repeat(pages.size) { index ->
-                    val isSelected = index == pagerState.currentPage
-                    Box(
-                        modifier = Modifier
-                            .size(if (isSelected) 8.dp else 6.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSelected)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                            )
-                    )
+            if (pages.size > 1) {
+                Row(
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    repeat(pages.size) { index ->
+                        val isSelected = index == pagerState.currentPage
+                        Box(
+                            modifier = Modifier
+                                .then(
+                                    if (isSelected) Modifier.neonGlow(CircleShape, colors.accent, 3.dp)
+                                    else Modifier
+                                )
+                                .size(width = if (isSelected) 16.dp else 6.dp, height = 6.dp)
+                                .background(
+                                    if (isSelected) colors.accent else Color.White.copy(alpha = 0.25f),
+                                    CircleShape
+                                )
+                        )
+                    }
                 }
             }
         }
@@ -322,201 +401,217 @@ fun PanelContent(
 @Composable
 fun HeaderInfoBar(
     modifier: Modifier = Modifier,
-    headerExpanded: Boolean = true,
+    gameLabel: String,
     time: String,
-    currentMode: GameMode,
-    onModeChange: (GameMode) -> Unit,
-    fpsInteractor: FpsInteractor,
-    onToggleExpand: () -> Unit,
+    compact: Boolean,
     onEditClick: () -> Unit,
-    tileRepository: TileRepository
+    onClose: () -> Unit,
 ) {
-    val batteryInfo = rememberBatteryInfo()
-    val batteryLevel = batteryInfo.level
-    val temp = batteryInfo.temperatureC.toInt()
+    val colors = neonColors()
+    val brand = stringResource(R.string.settings_title).uppercase(Locale.getDefault())
 
-    val modeColor = when (currentMode) {
-        GameMode.Performance -> Color(0xFFD32F2F)
-        GameMode.PowerSave -> Color(0xFF388E3C)
-        GameMode.Balanced -> Color(0xFFEF6C00)
-    }
-
-    Column(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .animateContentSize(
-                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
-            )
-            .background(
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .padding(
-                top = if (headerExpanded) 12.dp else 8.dp,
-                bottom = if (headerExpanded) 12.dp else 8.dp,
-                start = 12.dp,
-                end = 4.dp
-            )
+            .height(44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)
     ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            TopRowHeader(
-                time = time,
-                headerExpanded = headerExpanded,
-                onToggleExpand = onToggleExpand,
-                onEditClick = onEditClick
-            )
-            InfoRow(
-                batteryInfo = batteryInfo,
-                currentMode = currentMode,
-                modeColor = modeColor
-            )
+        Canvas(modifier = Modifier.size(width = 28.dp, height = 20.dp)) {
+            drawMark(colors.bright)
         }
 
-        AnimatedVisibility(
-            visible = headerExpanded,
-            enter = fadeIn(
-                animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()
-            ) + expandVertically(
-                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
-            ),
-            exit = fadeOut(
-                animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()
-            ) + shrinkVertically(
-                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
-            )
-        ) {
-            Column {
-                if (tileRepository.isFpsGraphVisible.value) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FpsGraph(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        interactor = fpsInteractor
-                    )
+        if (compact) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                NeonCaps(brand, colors.text, fontSize = 10.sp, letterSpacing = 0.2.em, maxLines = 1)
+                if (gameLabel.isNotEmpty()) {
+                    GameName(gameLabel)
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                GameModeSelector(
-                    selectedMode = currentMode,
-                    onModeSelected = onModeChange
+            }
+        } else {
+            NeonCaps(brand, colors.text, fontSize = 10.sp, letterSpacing = 0.2.em, maxLines = 1)
+            if (gameLabel.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .size(4.dp)
+                        .background(Color.White.copy(alpha = 0.28f), CircleShape)
                 )
+                GameName(gameLabel, Modifier.weight(1f))
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
+
+        Text(
+            text = time,
+            color = Color.White,
+            fontFamily = Poppins,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp,
+            lineHeight = 15.sp,
+            maxLines = 1,
+            style = Tight,
+            modifier = Modifier.padding(end = 4.dp)
+        )
+
+        PanelIconButton(
+            painter = painterResource(R.drawable.materialsymbols_ic_edit_rounded_filled),
+            contentDescription = stringResource(R.string.cd_edit_tiles),
+            onClick = onEditClick
+        )
+
+        PanelIconButton(
+            painter = painterResource(R.drawable.materialsymbols_ic_close_rounded_filled),
+            contentDescription = stringResource(R.string.cd_dismiss),
+            onClick = onClose
+        )
     }
 }
 
 @Composable
-private fun TopRowHeader(
-    time: String,
-    headerExpanded: Boolean,
-    onToggleExpand: () -> Unit,
-    onEditClick: () -> Unit
-) {
-    val rotateArrow by animateFloatAsState(
-        targetValue = if (headerExpanded) 180f else 0f,
-        animationSpec = MaterialTheme.motionScheme.slowSpatialSpec()
+private fun GameName(label: String, modifier: Modifier = Modifier) {
+    Text(
+        text = label,
+        modifier = modifier,
+        color = Color.White,
+        fontFamily = Poppins,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp,
+        lineHeight = 13.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        style = Tight
     )
+}
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+@Composable
+private fun PanelIconButton(
+    painter: Painter,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.06f))
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = time,
-            style = MaterialTheme.typography.titleMedium,
-            fontSize = 18.sp
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        IconButton(
-            onClick = onEditClick,
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            tint = NeonText,
             modifier = Modifier.size(18.dp)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.materialsymbols_ic_edit_rounded_filled),
-                contentDescription = stringResource(R.string.cd_edit_tiles)
-            )
-        }
-
-        IconButton(
-            onClick = onToggleExpand,
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.materialsymbols_ic_expand_more_rounded_filled),
-                contentDescription = if (headerExpanded) stringResource(R.string.cd_collapse) else stringResource(R.string.cd_expand),
-                modifier = Modifier.rotate(rotateArrow)
-            )
-        }
+        )
     }
 }
 
 @Composable
 private fun InfoRow(
-    batteryInfo: BatteryInfo, 
-    modeColor: Color,
-    currentMode: GameMode) {
+    fpsInteractor: FpsInteractor,
+    fpsTracked: Boolean
+) {
+    val batteryInfo = rememberBatteryInfo()
+    val fpsHistory by fpsInteractor.fpsHistory.collectAsState()
+    val maxFps by fpsInteractor.dynamicMaxFps.collectAsState()
+    val fps = if (fpsTracked) fpsHistory.lastOrNull() else null
+    val temp = batteryInfo.temperatureC
+
     Row(
-        modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        val temp = batteryInfo.temperatureC.toInt()
-        BatteryIndicator(batteryLevel = batteryInfo.level)
-        Spacer(modifier = Modifier.width(4.dp))
-        InfoItem(
-            icon = painterResource(R.drawable.materialsymbols_ic_device_thermostat_rounded_filled),
-            value = "$temp"
+        Gauge(
+            progress = if (fps != null && maxFps > 0f) fps / maxFps else 0f,
+            big = fps?.roundToInt()?.toString() ?: "--",
+            small = stringResource(R.string.panel_gauge_fps_unit),
+            label = stringResource(R.string.panel_gauge_fps)
         )
-        Spacer(modifier = Modifier.weight(1f))
-        Text(
-            text = currentMode.displayName,
-            style = MaterialTheme.typography.bodyLarge,
-            color = modeColor
+        Gauge(
+            progress = batteryInfo.level / 100f,
+            big = if (batteryInfo.level < 0) "--" else "${batteryInfo.level}",
+            small = "%",
+            label = stringResource(R.string.panel_gauge_battery)
+        )
+        Gauge(
+            progress = temp / 50f,
+            big = String.format(Locale.getDefault(), "%.1f", temp),
+            small = "°C",
+            label = stringResource(R.string.panel_gauge_temp)
         )
     }
 }
 
 @Composable
-private fun InfoItem(
-    icon: Any?,
-    value: String,
-    onClick: (() -> Unit)? = null
+private fun Gauge(
+    progress: Float,
+    big: String,
+    small: String,
+    label: String
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+    val colors = neonColors()
+    Column(
+        modifier = Modifier.width(72.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (icon != null) {
-            when (icon) {
-                is ImageVector -> Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                is Painter -> Icon(
-                    painter = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+        Box(
+            modifier = Modifier.size(64.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawGauge(
+                    progress = progress,
+                    radius = size.width * 27f / 64f,
+                    stroke = size.width * 4.5f / 64f,
+                    color = colors.accent,
+                    track = NeonTrack
                 )
             }
-            Spacer(modifier = Modifier.width(1.dp))
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = big,
+                    color = Color.White,
+                    fontFamily = Poppins,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    lineHeight = 16.sp,
+                    maxLines = 1,
+                    softWrap = false,
+                    style = Tight
+                )
+                Text(
+                    text = small,
+                    color = NeonLabel,
+                    fontSize = 8.5.sp,
+                    lineHeight = 9.sp,
+                    maxLines = 1,
+                    softWrap = false,
+                    style = Tight
+                )
+            }
         }
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Spacer(modifier = Modifier.height(7.dp))
+        NeonCaps(label.uppercase(Locale.getDefault()), NeonLabel)
     }
 }
 
 @Composable
 fun TileEditPanel(
     tileRepository: TileRepository,
+    wide: Boolean,
     onClose: () -> Unit
 ) {
+    val colors = neonColors()
+    val perRow = if (wide) 8 else 4
     val allTiles = remember { tileRepository.allAvailableTiles }
     val dragDropState = remember { TileDragDropState(tileRepository.tiles, columns = 2) }
 
@@ -535,26 +630,49 @@ fun TileEditPanel(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = localMaxHeight)
-            .padding(top = 4.dp, start = 12.dp, end = 12.dp, bottom = 12.dp)
+            .padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            IconButton(onClick = onClose) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = stringResource(R.string.back)
-                )
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            Button(
-                onClick = {
-                    tileRepository.updateTileSelection(dragDropState.tileIds())
-                    onClose()
-                }
+            PanelIconButton(
+                painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.ArrowBack),
+                contentDescription = stringResource(R.string.back),
+                onClick = onClose
+            )
+            NeonCaps(
+                text = stringResource(R.string.cd_edit_tiles).uppercase(Locale.getDefault()),
+                color = colors.text,
+                modifier = Modifier.weight(1f),
+                fontSize = 10.sp,
+                letterSpacing = 0.2.em
+            )
+            Box(
+                modifier = Modifier
+                    .height(40.dp)
+                    .neonGlow(CircleShape, colors.accent, 4.dp)
+                    .clip(CircleShape)
+                    .neonFill(colors.accent, 0.5f, 0.2f)
+                    .border(1.dp, colors.accent.copy(alpha = 0.6f), CircleShape)
+                    .clickable(role = Role.Button) {
+                        tileRepository.updateTileSelection(dragDropState.tileIds())
+                        onClose()
+                    }
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Text(stringResource(R.string.save))
+                Text(
+                    text = stringResource(R.string.save),
+                    color = Color.White,
+                    fontFamily = Poppins,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    maxLines = 1
+                )
             }
         }
 
@@ -565,16 +683,18 @@ fun TileEditPanel(
                 .verticalScroll(rememberScrollState())
         ) {
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                .padding(12.dp)
+                .clip(CardShape)
+                .background(Color.Black.copy(alpha = 0.28f))
+                .border(1.dp, Color.White.copy(alpha = 0.06f), CardShape)
+                .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
-            Text(stringResource(R.string.panel_options), style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(8.dp))
+            NeonCaps(stringResource(R.string.panel_options).uppercase(Locale.getDefault()), colors.text)
+            Spacer(modifier = Modifier.height(4.dp))
 
             SettingToggleRow(
                 title = stringResource(R.string.brightness_slider),
@@ -595,15 +715,11 @@ fun TileEditPanel(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        Text(
-            stringResource(R.string.selected_tiles),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
+        NeonCaps(stringResource(R.string.selected_tiles).uppercase(Locale.getDefault()), colors.text)
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Column(
             modifier = Modifier
@@ -625,14 +741,14 @@ fun TileEditPanel(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             val tiles = dragDropState.tiles
-            val rows = tiles.chunked(4)
+            val rows = tiles.chunked(perRow)
             rows.forEachIndexed { rowIndex, rowTiles ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     rowTiles.forEachIndexed { colIndex, tile ->
-                        val index = rowIndex * 4 + colIndex
+                        val index = rowIndex * perRow + colIndex
                         val isBeingDragged = dragDropState.isMoving(tile.id)
 
                         Box(
@@ -654,10 +770,9 @@ fun TileEditPanel(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(
-                                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)
-                                        )
+                                        .clip(CardShape)
+                                        .background(colors.accent.copy(alpha = 0.14f))
+                                        .border(1.dp, colors.accent.copy(alpha = 0.4f), CardShape)
                                 )
                             } else {
                                 Box(
@@ -681,7 +796,7 @@ fun TileEditPanel(
                             }
                         }
                     }
-                    repeat(4 - rowTiles.size) {
+                    repeat(perRow - rowTiles.size) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
                 }
@@ -693,8 +808,8 @@ fun TileEditPanel(
                 ) {
                     Text(
                         stringResource(R.string.drag_tiles_here),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        color = NeonLabel,
                     )
                 }
             }
@@ -702,13 +817,9 @@ fun TileEditPanel(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            stringResource(R.string.available_tiles),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
+        NeonCaps(stringResource(R.string.available_tiles).uppercase(Locale.getDefault()), colors.text)
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Column(
             modifier = Modifier
@@ -722,7 +833,7 @@ fun TileEditPanel(
                 },
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            val rows = availableList.chunked(4)
+            val rows = availableList.chunked(perRow)
             rows.forEach { rowTiles ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -750,7 +861,7 @@ fun TileEditPanel(
                             )
                         }
                     }
-                    repeat(4 - rowTiles.size) {
+                    repeat(perRow - rowTiles.size) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
                 }
@@ -762,8 +873,8 @@ fun TileEditPanel(
                 ) {
                     Text(
                         stringResource(R.string.all_tiles_added),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        color = NeonLabel,
                     )
                 }
             }
@@ -779,27 +890,19 @@ fun EditorGameTile(
     isAdded: Boolean,
     onAction: () -> Unit,
 ) {
+    val colors = neonColors()
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(TILE_LABEL_GAP),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceBright)
-                    .clickable { onAction() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(icon),
-                    contentDescription = label,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
+        Box(modifier = Modifier.size(TILE_SIZE), contentAlignment = Alignment.Center) {
+            NeonTile(
+                icon = icon,
+                label = label,
+                on = false,
+                modifier = Modifier.clickable { onAction() },
+            )
 
             Box(
                 modifier = Modifier
@@ -809,7 +912,7 @@ fun EditorGameTile(
                     .clip(CircleShape)
                     .background(
                         if (isAdded) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary
+                        else colors.accent
                     )
                     .clickable { onAction() },
                 contentAlignment = Alignment.Center,
@@ -818,20 +921,13 @@ fun EditorGameTile(
                     if (isAdded) Icons.Rounded.Remove else Icons.Rounded.Add,
                     contentDescription = null,
                     tint = if (isAdded) MaterialTheme.colorScheme.onError
-                    else MaterialTheme.colorScheme.onPrimary,
+                    else Color.White,
                     modifier = Modifier.size(12.dp),
                 )
             }
         }
 
-        Text(
-            text = label,
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.width(70.dp).basicMarquee(),
-            maxLines = 1,
-            textAlign = TextAlign.Center,
-        )
+        TileLabelText(label, Modifier.fillMaxWidth())
     }
 }
 
@@ -845,17 +941,19 @@ fun SettingToggleRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = title,
             modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge
+            color = NeonText,
+            fontSize = 13.sp
         )
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
+            colors = neonSwitchColors()
         )
     }
 }
@@ -863,8 +961,6 @@ fun SettingToggleRow(
 @Composable
 fun TileButton(tile: TileAction, modifier: Modifier = Modifier) {
     val isEnabled by tile.observeEnabled()
-    val bgColor = if (isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceBright
-    val fgColor = if (isEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -877,47 +973,79 @@ fun TileButton(tile: TileAction, modifier: Modifier = Modifier) {
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(TILE_LABEL_GAP),
         modifier = modifier
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale
-            }
-            .height(80.dp),
+            },
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(bgColor)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                ) { tile.toggle() },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(tile.icon),
-                contentDescription = tile.label,
-                tint = fgColor,
-                modifier = Modifier.size(22.dp),
+        NeonTile(
+            icon = tile.icon,
+            label = tile.label,
+            on = isEnabled,
+            modifier = Modifier.clickable(
+                interactionSource = interactionSource,
+                indication = null,
+            ) { tile.toggle() },
+        )
+        TileLabelText(tile.label, Modifier.widthIn(max = 64.dp))
+    }
+}
+
+@Composable
+private fun NeonTile(
+    icon: Int,
+    label: String,
+    on: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val colors = neonColors()
+    Box(
+        modifier = Modifier
+            .size(TILE_SIZE)
+            .then(if (on) Modifier.neonGlow(CircleShape, colors.accent, 4.dp) else Modifier)
+            .clip(CircleShape)
+            .then(modifier)
+            .then(
+                if (on) Modifier.neonFill(colors.accent, 0.42f, 0.16f, centerY = 0.3f, reach = 0.8f)
+                else Modifier.background(Color.White.copy(alpha = 0.06f))
             )
-        }
-        Text(
-            text = tile.label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            textAlign = TextAlign.Center,
+            .border(
+                1.dp,
+                if (on) colors.accent.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.08f),
+                CircleShape
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = label,
+            tint = if (on) Color.White else NeonText,
             modifier = Modifier
-                .width(64.dp)
-                .basicMarquee(),
+                .size(22.dp)
+                .then(if (on) Modifier.neonHalo(colors.accent) else Modifier),
         )
     }
 }
 
 @Composable
+private fun TileLabelText(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        modifier = modifier,
+        color = TileLabel,
+        fontSize = 9.5.sp,
+        lineHeight = TILE_LABEL_LINE,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center,
+    )
+}
+
+@Composable
 fun BrightnessSlider(interactor: BrightnessInteractor) {
+    val colors = neonColors()
     val brightnessInfo by interactor.brightnessInfo.collectAsState()
     val isAuto by interactor.isAuto.collectAsState()
 
@@ -957,7 +1085,10 @@ fun BrightnessSlider(interactor: BrightnessInteractor) {
             }
     }
 
-    Row {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Slider(
             value = sliderPosition,
             onValueChange = { newValue ->
@@ -971,48 +1102,102 @@ fun BrightnessSlider(interactor: BrightnessInteractor) {
             },
             enabled = true,
             valueRange = 0f..1f,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            thumb = { Spacer(modifier = Modifier.size(BRIGHTNESS_HEIGHT)) },
+            track = { state -> BrightnessTrack({ state.coercedValueAsFraction }, colors) }
         )
 
-        IconButton(
-            onClick = { interactor.toggleAutoMode() },
-            enabled = brightnessInfo != null,
-            modifier = Modifier.padding(start = 8.dp)
+        val autoEnabled = brightnessInfo != null
+        val autoOn = isAuto == true
+        val autoLabel = stringResource(R.string.panel_auto_brightness)
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .alpha(if (autoEnabled) 1f else 0.38f)
+                .clip(CircleShape)
+                .background(
+                    if (autoOn) colors.accent.copy(alpha = 0.18f)
+                    else Color.White.copy(alpha = 0.06f)
+                )
+                .border(
+                    1.dp,
+                    if (autoOn) colors.accent else Color.White.copy(alpha = 0.10f),
+                    CircleShape
+                )
+                .toggleable(
+                    value = autoOn,
+                    enabled = autoEnabled,
+                    role = Role.Switch,
+                ) { interactor.toggleAutoMode() }
+                .semantics { contentDescription = autoLabel },
+            contentAlignment = Alignment.Center
         ) {
-            Icon(
-                painter =
-                    if (isAuto == true)
-                        painterResource(R.drawable.materialsymbols_ic_brightness_auto_rounded_filled)
-                    else
-                        painterResource(R.drawable.materialsymbols_ic_brightness_7_rounded_filled),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
+            Text(
+                text = "A",
+                color = colors.text,
+                fontFamily = Poppins,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                lineHeight = 14.sp,
+                style = Tight,
+                modifier = Modifier.clearAndSetSemantics {}
             )
         }
     }
 }
 
 @Composable
-fun BatteryIndicator(
-    batteryLevel: Int,
-    modifier: Modifier = Modifier
-) {
-    val icon = when {
-        batteryLevel >= 90 -> painterResource(R.drawable.materialsymbols_ic_battery_android_full_rounded_filled)
-        batteryLevel >= 70 -> painterResource(R.drawable.materialsymbols_ic_battery_android_4_rounded_filled)
-        batteryLevel >= 50 -> painterResource(R.drawable.materialsymbols_ic_battery_android_3_rounded_filled)
-        batteryLevel >= 30 -> painterResource(R.drawable.materialsymbols_ic_battery_android_2_rounded_filled)
-        batteryLevel >= 10 -> painterResource(R.drawable.materialsymbols_ic_battery_android_1_rounded_filled)
-        else -> painterResource(R.drawable.materialsymbols_ic_battery_android_0_rounded_filled)
+private fun BrightnessTrack(fraction: () -> Float, colors: NeonColors) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(BRIGHTNESS_HEIGHT)
+            .drawWithCache {
+                val inset = size.height / 2f
+                val corner = CornerRadius(inset)
+                val track = Path().apply {
+                    addRoundRect(RoundRect(-inset, 0f, size.width + inset, size.height, corner))
+                }
+                val glow = Stroke(6.dp.toPx())
+                val rtl = layoutDirection == LayoutDirection.Rtl
+                onDrawBehind {
+                    drawPath(track, Color.White.copy(alpha = 0.07f))
+                    val fillWidth = size.width * fraction() + inset * 2f
+                    val left = if (rtl) size.width + inset - fillWidth else -inset
+                    val brush = Brush.horizontalGradient(
+                        0f to colors.accent.copy(alpha = 0.55f),
+                        1f to colors.accent,
+                        startX = if (rtl) left + fillWidth else left,
+                        endX = if (rtl) left else left + fillWidth
+                    )
+                    clipPath(track) {
+                        drawRoundRect(
+                            color = colors.accent.copy(alpha = 0.25f),
+                            topLeft = Offset(left, 0f),
+                            size = Size(fillWidth, size.height),
+                            cornerRadius = corner,
+                            style = glow
+                        )
+                        drawRoundRect(
+                            brush = brush,
+                            topLeft = Offset(left, 0f),
+                            size = Size(fillWidth, size.height),
+                            cornerRadius = corner
+                        )
+                    }
+                }
+            },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.materialsymbols_ic_light_mode_rounded_filled),
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier
+                .offset(x = 12.dp - BRIGHTNESS_HEIGHT / 2)
+                .size(20.dp)
+        )
     }
-
-    val batteryText = "$batteryLevel%"
-
-    InfoItem(
-        icon = icon,
-        value = batteryText
-    )
 }
 
 @Composable
@@ -1020,51 +1205,90 @@ fun FpsGraph(
     modifier: Modifier = Modifier,
     interactor: FpsInteractor
 ) {
+    val colors = neonColors()
     val fpsHistory by interactor.fpsHistory.collectAsState(initial = emptyList())
     val maxFps by interactor.dynamicMaxFps.collectAsState()
-    
+
     val graphData = remember(fpsHistory, maxFps) {
         if (fpsHistory.isNotEmpty()) {
             val minFps = fpsHistory.minOrNull() ?: 0f
             val avgFps = fpsHistory.average().toFloat()
             val maxFpsSeen = fpsHistory.maxOrNull() ?: 0f
             val clampedMaxFps = maxFps.takeIf { it > 0f } ?: 60f
-            val fpsColor = when {
-                avgFps >= clampedMaxFps * 0.9f -> Color(0xFF4CAF50)
-                avgFps >= clampedMaxFps * 0.75f -> Color(0xFFFFA000)
-                else -> Color(0xFFD32F2F)
-            }
-            Triple(Triple(minFps, avgFps, maxFpsSeen), clampedMaxFps, fpsColor)
+            Pair(Triple(minFps, avgFps, maxFpsSeen), clampedMaxFps)
         } else {
-            Triple(Triple(0f, 0f, 0f), 60f, Color.Gray)
+            Pair(Triple(0f, 0f, 0f), 60f)
         }
     }
-    
+
     val normalizedPoints = remember(fpsHistory, graphData.second) {
         val clampedMaxFps = graphData.second
         fpsHistory.map { fps -> (fps / clampedMaxFps).coerceIn(0f, 1f) }
     }
-    
+
     Box(
         modifier = modifier
-            .height(50.dp)
+            .height(92.dp)
             .fillMaxWidth()
+            .clip(CardShape)
+            .background(Color.Black.copy(alpha = 0.28f))
+            .border(1.dp, Color.White.copy(alpha = 0.06f), CardShape)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 14.dp, end = 14.dp, top = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val (minFps, avgFps, maxFpsSeen) = graphData.first
+            NeonCaps(
+                stringResource(R.string.fps_graph).uppercase(Locale.getDefault()),
+                colors.text,
+                letterSpacing = 0.16.em
+            )
+            Text(
+                text = stringResource(R.string.fps_stats, minFps.toInt(), avgFps.toInt(), maxFpsSeen.toInt()),
+                color = Color(0xFFC9C5CC),
+                fontSize = 9.5.sp,
+                lineHeight = 9.5.sp,
+                maxLines = 1,
+                style = Tight
+            )
+        }
+
+        Canvas(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(start = 14.dp, end = 14.dp, bottom = 8.dp)
+                .height(56.dp)
+        ) {
+            val dash = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 4.dp.toPx()))
+            listOf(6f, 28f).forEach { y ->
+                drawLine(
+                    color = Color.White.copy(alpha = 0.06f),
+                    start = Offset(0f, size.height * y / 56f),
+                    end = Offset(size.width, size.height * y / 56f),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = dash
+                )
+            }
+
             if (normalizedPoints.isNotEmpty() && normalizedPoints.size > 1) {
                 val width = size.width
                 val height = size.height
                 val stepX = width / (normalizedPoints.size - 1)
-                
+
                 val path = Path().apply {
                     moveTo(0f, height)
-                    
+
                     lineTo(0f, height - (normalizedPoints[0] * height))
-                    
+
                     for (i in 1 until normalizedPoints.size) {
                         val currentX = i * stepX
                         val currentY = height - (normalizedPoints[i] * height)
-                        
+
                         if (i == 1) {
                             lineTo(currentX, currentY)
                         } else {
@@ -1072,29 +1296,29 @@ fun FpsGraph(
                             val prevY = height - (normalizedPoints[i - 1] * height)
                             val controlX = (prevX + currentX) / 2f
                             val controlY = (prevY + currentY) / 2f
-                            
+
                             quadraticBezierTo(controlX, controlY, currentX, currentY)
                         }
                     }
-                    
+
                     lineTo(width, height)
                     close()
                 }
-                
+
                 val gradient = Brush.verticalGradient(
                     colors = listOf(
-                        graphData.third.copy(alpha = 0.6f),
-                        graphData.third.copy(alpha = 0.1f)
+                        colors.accent.copy(alpha = 0.32f),
+                        colors.accent.copy(alpha = 0f)
                     ),
                     startY = 0f,
                     endY = height
                 )
-                
+
                 drawPath(
                     path = path,
                     brush = gradient
                 )
-                
+
                 val linePath = Path().apply {
                     moveTo(0f, height - (normalizedPoints[0] * height))
                     for (i in 1 until normalizedPoints.size) {
@@ -1111,27 +1335,18 @@ fun FpsGraph(
                         }
                     }
                 }
-                
+
                 drawPath(
                     path = linePath,
-                    color = graphData.third,
+                    color = colors.bright.copy(alpha = 0.25f),
+                    style = Stroke(width = 5.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                )
+                drawPath(
+                    path = linePath,
+                    color = colors.bright,
                     style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
             }
-        }
-        
-        Row(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val (minFps, avgFps, maxFpsSeen) = graphData.first
-            Text(
-                text = stringResource(R.string.fps_stats, minFps.toInt(), avgFps.toInt(), maxFpsSeen.toInt()),
-                color = graphData.third,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp)
-            )
         }
     }
 }
@@ -1141,44 +1356,61 @@ fun GameModeSelector(
     selectedMode: GameMode,
     onModeSelected: (GameMode) -> Unit
 ) {
-    val modes = GameMode.values()
+    val colors = neonColors()
+    val modes = listOf(GameMode.PowerSave, GameMode.Balanced, GameMode.Performance)
     val haptic = LocalHapticFeedback.current
+    val shape = RoundedCornerShape(18.dp)
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         modes.forEach { mode ->
             val isSelected = mode == selectedMode
 
-            val color = when (mode) {
-                GameMode.Performance -> Color(0xFFD32F2F)
-                GameMode.PowerSave -> Color(0xFF388E3C)
-                GameMode.Balanced -> Color(0xFFEF6C00)
-            }
-
-            Box(
+            Column(
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(color.copy(alpha = if (isSelected) 0.4f else 0.2f))
+                    .height(60.dp)
+                    .then(if (isSelected) Modifier.neonGlow(shape, colors.accent) else Modifier)
+                    .clip(shape)
+                    .then(
+                        if (isSelected) Modifier.neonFill(colors.accent, 0.38f, 0.12f, reach = 0.63f)
+                        else Modifier.background(Color.White.copy(alpha = 0.05f))
+                    )
+                    .border(
+                        1.dp,
+                        if (isSelected) colors.accent.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.07f),
+                        shape
+                    )
                     .clickable {
                         if (!isSelected) {
                             onModeSelected(mode)
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         }
                     },
-                contentAlignment = Alignment.Center
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
             ) {
                 Icon(
                     imageVector = mode.icon,
-                    contentDescription = mode.displayName,
-                    tint = color.copy(alpha = if (isSelected) 1f else 0.4f),
-                    modifier = Modifier.size(24.dp)
+                    contentDescription = null,
+                    tint = if (isSelected) colors.bright else NeonLabel,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .then(if (isSelected) Modifier.neonHalo(colors.accent) else Modifier)
+                )
+                Text(
+                    text = mode.displayName,
+                    color = if (isSelected) Color.White else NeonLabel,
+                    fontFamily = Poppins,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp,
+                    lineHeight = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = Tight
                 )
             }
         }
@@ -1188,31 +1420,27 @@ fun GameModeSelector(
 @Composable
 fun QuickStartAppSidebar(apps: List<AppInfo>) {
     val scrollState = rememberScrollState()
-    val context = LocalContext.current
 
-    Box(
-        modifier = Modifier.padding(end = 0.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
+        NeonCaps(
+            text = stringResource(R.string.quick_start_apps_title).uppercase(Locale.getDefault()),
+            color = NeonLabel,
+            modifier = Modifier.width(46.dp),
+            lineHeight = 11.sp
+        )
+        Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight()
-                .background(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(12.dp)
-                )
-                .padding(8.dp)
+                .weight(1f)
+                .horizontalScroll(scrollState),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(scrollState),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                apps.forEach { app ->
-                    QuickStartAppIcon(appInfo = app)
-                }
+            apps.forEach { app ->
+                QuickStartAppIcon(appInfo = app)
             }
         }
     }
@@ -1274,10 +1502,12 @@ fun QuickStartAppIcon(
 ) {
     val context = LocalContext.current
     val painter = rememberDrawablePainter(appInfo.icon)
+    val shape = RoundedCornerShape(14.dp)
     Box(
         modifier = modifier
-            .size(40.dp)
-            .clip(CircleShape)
+            .size(44.dp)
+            .clip(shape)
+            .border(1.dp, Color.White.copy(alpha = 0.08f), shape)
             .clickable {
                 launchAppInFreeformMode(context, appInfo.packageName)
             },
@@ -1286,7 +1516,7 @@ fun QuickStartAppIcon(
         Image(
             painter = painter,
             contentDescription = appInfo.name,
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier.size(44.dp)
         )
     }
 }
@@ -1325,10 +1555,10 @@ fun rememberBatteryInfo(): BatteryInfo {
                     val level = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
                     val scale = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
                     val percentage = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
-                    
+
                     val tempTenths = it.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
                     val tempCelsius = tempTenths / 10f
-                    
+
                     batteryInfo.value = BatteryInfo(
                         level = percentage,
                         temperatureC = tempCelsius
@@ -1336,15 +1566,15 @@ fun rememberBatteryInfo(): BatteryInfo {
                 }
             }
         }
-        
+
         val intentFilter = IntentFilter().apply {
             addAction(Intent.ACTION_BATTERY_CHANGED)
             addAction(Intent.ACTION_BATTERY_LOW)
             addAction(Intent.ACTION_BATTERY_OKAY)
         }
-        
+
         context.registerReceiver(receiver, intentFilter)
-        
+
         val batteryStatus: Intent? = context.registerReceiver(null, intentFilter)
         batteryStatus?.let { intent ->
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
@@ -1352,18 +1582,18 @@ fun rememberBatteryInfo(): BatteryInfo {
             val percentage = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
             val tempTenths = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
             val tempCelsius = tempTenths / 10f
-            
+
             batteryInfo.value = BatteryInfo(
                 level = percentage,
                 temperatureC = tempCelsius
             )
         }
-        
+
         onDispose {
             context.unregisterReceiver(receiver)
         }
     }
-    
+
     return batteryInfo.value
 }
 
@@ -1405,6 +1635,7 @@ fun CrosshairSettingsCard(
     appSettings: AppSettings,
     modifier: Modifier = Modifier
 ) {
+    val colors = neonColors()
     var crosshairStyle by remember { mutableStateOf(appSettings.crosshairStyle) }
     var crosshairSize by remember { mutableStateOf(appSettings.crosshairSize) }
     var crosshairColor by remember { mutableStateOf(appSettings.crosshairColor) }
@@ -1421,12 +1652,19 @@ fun CrosshairSettingsCard(
         0xFFFFFFFF.toInt() to Color(0xFFFFFFFF), // White
         0xFF2196F3.toInt() to Color(0xFF2196F3)  // Blue
     )
+    val sliderColors = SliderDefaults.colors(
+        thumbColor = colors.bright,
+        activeTrackColor = colors.accent,
+        inactiveTrackColor = Color.White.copy(alpha = 0.1f)
+    )
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-            .padding(12.dp),
+            .clip(CardShape)
+            .background(Color.Black.copy(alpha = 0.28f))
+            .border(1.dp, Color.White.copy(alpha = 0.06f), CardShape)
+            .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(
@@ -1438,13 +1676,15 @@ fun CrosshairSettingsCard(
         ) {
             Text(
                 text = "Crosshair Settings",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = Color.White,
+                fontFamily = Poppins,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp
             )
             Icon(
                 painter = painterResource(R.drawable.ic_arrow_left),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = NeonLabel,
                 modifier = Modifier
                     .size(20.dp)
                     .rotate(if (isExpanded) 90f else 270f)
@@ -1463,7 +1703,7 @@ fun CrosshairSettingsCard(
                 Text(
                     text = "Style",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = NeonLabel
                 )
                 val styles = listOf(
                     1 to R.drawable.crosshair_style_1,
@@ -1489,15 +1729,15 @@ fun CrosshairSettingsCard(
                                     modifier = Modifier
                                         .weight(1f)
                                         .aspectRatio(1f)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(12.dp))
                                         .background(
-                                            if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                            else MaterialTheme.colorScheme.surfaceContainerHighest
+                                            if (isSelected) colors.accent.copy(alpha = 0.18f)
+                                            else Color.White.copy(alpha = 0.06f)
                                         )
                                         .border(
-                                            width = 2.dp,
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                            shape = RoundedCornerShape(8.dp)
+                                            width = 1.dp,
+                                            color = if (isSelected) colors.accent else Color.Transparent,
+                                            shape = RoundedCornerShape(12.dp)
                                         )
                                         .clickable {
                                             appSettings.crosshairStyle = index
@@ -1508,7 +1748,7 @@ fun CrosshairSettingsCard(
                                     Icon(
                                         painter = painterResource(resId),
                                         contentDescription = "Style $index",
-                                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = if (isSelected) colors.bright else NeonLabel,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -1520,7 +1760,7 @@ fun CrosshairSettingsCard(
                 Text(
                     text = "Color",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = NeonLabel
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1535,7 +1775,7 @@ fun CrosshairSettingsCard(
                                 .background(composeColor)
                                 .border(
                                     width = 2.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                                    color = if (isSelected) Color.White else Color.Transparent,
                                     shape = CircleShape
                                 )
                                 .clickable {
@@ -1554,12 +1794,12 @@ fun CrosshairSettingsCard(
                         Text(
                             text = "Size",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = NeonLabel
                         )
                         Text(
                             text = "${crosshairSize}dp",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = NeonLabel
                         )
                     }
                     Slider(
@@ -1570,6 +1810,7 @@ fun CrosshairSettingsCard(
                             crosshairSize = rounded
                         },
                         valueRange = 24f..64f,
+                        colors = sliderColors,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -1582,12 +1823,12 @@ fun CrosshairSettingsCard(
                         Text(
                             text = "Opacity",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = NeonLabel
                         )
                         Text(
                             text = "${(crosshairOpacity * 100).roundToInt()}%",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = NeonLabel
                         )
                     }
                     Slider(
@@ -1597,6 +1838,7 @@ fun CrosshairSettingsCard(
                             crosshairOpacity = it
                         },
                         valueRange = 0.2f..1f,
+                        colors = sliderColors,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -1612,13 +1854,13 @@ fun CrosshairSettingsCard(
                         Text(
                             text = "Position Tuning",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = NeonLabel
                         )
                         if (crosshairOffsetX != 0 || crosshairOffsetY != 0) {
                             Text(
                                 text = "Reset",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = colors.text,
                                 modifier = Modifier.clickable {
                                     appSettings.crosshairOffsetX = 0
                                     appSettings.crosshairOffsetY = 0
@@ -1637,12 +1879,12 @@ fun CrosshairSettingsCard(
                             Text(
                                 text = "X Offset",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = NeonLabel
                             )
                             Text(
                                 text = "${if (crosshairOffsetX > 0) "+" else ""}${crosshairOffsetX}dp",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = NeonLabel
                             )
                         }
                         Slider(
@@ -1653,6 +1895,7 @@ fun CrosshairSettingsCard(
                                 crosshairOffsetX = rounded
                             },
                             valueRange = -100f..100f,
+                            colors = sliderColors,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -1665,12 +1908,12 @@ fun CrosshairSettingsCard(
                             Text(
                                 text = "Y Offset",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = NeonLabel
                             )
                             Text(
                                 text = "${if (crosshairOffsetY > 0) "+" else ""}${crosshairOffsetY}dp",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = NeonLabel
                             )
                         }
                         Slider(
@@ -1681,6 +1924,7 @@ fun CrosshairSettingsCard(
                                 crosshairOffsetY = rounded
                             },
                             valueRange = -100f..100f,
+                            colors = sliderColors,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -1690,12 +1934,12 @@ fun CrosshairSettingsCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MusicPlayerCard(
     musicController: MusicController,
     modifier: Modifier = Modifier
 ) {
+    val colors = neonColors()
     val trackTitle by remember { musicController.trackTitle }
     val artistName by remember { musicController.artistName }
     val isPlaying by remember { musicController.isPlaying }
@@ -1707,166 +1951,150 @@ fun MusicPlayerCard(
     val displayTitle = if (hasActiveMedia) trackTitle else stringResource(R.string.no_music_playing)
     val displayArtist = if (hasActiveMedia) artistName else stringResource(R.string.tap_to_play)
 
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseAlpha by if (isPlaying) {
-        infiniteTransition.animateFloat(
-            initialValue = 0.15f,
-            targetValue = 0.45f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1500, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "pulseAlpha"
-        )
-    } else {
-        rememberUpdatedState(0f)
-    }
-
-    Card(
+    Row(
         modifier = modifier
-            .fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            .fillMaxWidth()
+            .clip(CardShape)
+            .background(Color.Black.copy(alpha = 0.28f))
+            .border(1.dp, Color.White.copy(alpha = 0.06f), CardShape)
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Box(
+            modifier = Modifier.size(40.dp)
+        ) {
+            if (albumArt != null) {
+                Image(
+                    bitmap = albumArt!!.asImageBitmap(),
+                    contentDescription = "Album Art",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.06f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_music_note),
+                        contentDescription = "No Art",
+                        tint = NeonLabel,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            if (activeAppIcon != null) {
+                val appIconBitmap = remember(activeAppIcon) {
+                    activeAppIcon!!.toBitmap(24, 24).asImageBitmap()
+                }
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 4.dp, y = 4.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF141416))
+                        .padding(1.5.dp)
+                ) {
+                    Image(
+                        bitmap = appIconBitmap,
+                        contentDescription = "App Icon",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
+                .weight(1f)
+                .padding(end = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = displayTitle,
+                color = Color.White,
+                fontFamily = Poppins,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = displayArtist,
+                color = NeonLabel,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(48.dp)
-            ) {
-                if (albumArt != null) {
-                    Image(
-                        bitmap = albumArt!!.asImageBitmap(),
-                        contentDescription = "Album Art",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surface),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_music_note),
-                            contentDescription = "No Art",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-
-                if (activeAppIcon != null) {
-                    val appIconBitmap = remember(activeAppIcon) {
-                        activeAppIcon!!.toBitmap(24, 24).asImageBitmap()
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(18.dp)
-                            .align(Alignment.BottomEnd)
-                            .offset(x = 4.dp, y = 4.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(1.5.dp)
-                    ) {
-                        Image(
-                            bitmap = appIconBitmap,
-                            contentDescription = "App Icon",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 8.dp),
-                verticalArrangement = Arrangement.Center
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.06f))
+                    .clickable { musicController.skipToPrevious() },
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = displayTitle,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    modifier = Modifier.basicMarquee()
-                )
-                Text(
-                    text = displayArtist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    modifier = Modifier.basicMarquee()
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_right),
+                    contentDescription = "Previous",
+                    tint = NeonText,
+                    modifier = Modifier.size(12.dp)
                 )
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .then(if (isPlaying) Modifier.neonGlow(CircleShape, colors.accent, 4.dp) else Modifier)
+                    .clip(CircleShape)
+                    .background(colors.accent.copy(alpha = 0.18f))
+                    .border(
+                        width = 1.dp,
+                        color = colors.accent.copy(alpha = 0.6f),
+                        shape = CircleShape
+                    )
+                    .clickable { musicController.togglePlayPause() },
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface)
-                        .clickable { musicController.skipToPrevious() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_arrow_right),
-                        contentDescription = "Previous",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(12.dp)
-                    )
-                }
+                Icon(
+                    painter = painterResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play),
+                    contentDescription = "Play/Pause",
+                    tint = colors.bright,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
 
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .border(
-                            width = 1.5.dp,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = if (isPlaying) pulseAlpha else 0f),
-                            shape = CircleShape
-                        )
-                        .clickable { musicController.togglePlayPause() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play),
-                        contentDescription = "Play/Pause",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface)
-                        .clickable { musicController.skipToNext() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_arrow_left),
-                        contentDescription = "Next",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(12.dp)
-                    )
-                }
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.06f))
+                    .clickable { musicController.skipToNext() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_left),
+                    contentDescription = "Next",
+                    tint = NeonText,
+                    modifier = Modifier.size(12.dp)
+                )
             }
         }
     }

@@ -136,8 +136,6 @@
     <string name="cd_caller_photo">발신자 사진</string>
     <string name="cd_dismiss">무시</string>
     <string name="cd_edit_tiles">타일 편집</string>
-    <string name="cd_collapse">접기</string>
-    <string name="cd_expand">펼치기</string>
     <!-- Game Optimization -->
     <string name="game_optimization_title">최적화 실행</string>
     <string name="game_memory_management_title">스마트 메모리 관리</string>

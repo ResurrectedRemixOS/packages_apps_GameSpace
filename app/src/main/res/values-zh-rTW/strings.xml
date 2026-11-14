@@ -136,8 +136,6 @@
     <string name="cd_caller_photo">來電者相片</string>
     <string name="cd_dismiss">關閉</string>
     <string name="cd_edit_tiles">編輯快捷按鈕</string>
-    <string name="cd_collapse">收合</string>
-    <string name="cd_expand">展開</string>
     <!-- Game Optimization -->
     <string name="game_optimization_title">遊戲啟動優化</string>
     <string name="game_memory_management_title">智慧記憶體管理</string>

@@ -136,8 +136,6 @@
     <string name="cd_caller_photo">Arayan Fotoğrafı</string>
     <string name="cd_dismiss">Kapat</string>
     <string name="cd_edit_tiles">Karoları Düzenle</string>
-    <string name="cd_collapse">Daralt</string>
-    <string name="cd_expand">Genişlet</string>
     <!-- Game Optimization -->
     <string name="game_optimization_title">Başlatma Optimizasyonu</string>
     <string name="game_memory_management_title">Akıllı Bellek Yönetimi</string>

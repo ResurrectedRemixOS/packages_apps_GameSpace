@@ -136,8 +136,6 @@
     <string name="cd_caller_photo">来电者照片</string>
     <string name="cd_dismiss">清除</string>
     <string name="cd_edit_tiles">编辑磁贴</string>
-    <string name="cd_collapse">收起</string>
-    <string name="cd_expand">展开</string>
     <!-- Game Optimization -->
     <string name="game_optimization_title">启动优化</string>
     <string name="game_memory_management_title">智能内存管理</string>

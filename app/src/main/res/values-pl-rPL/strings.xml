@@ -136,8 +136,6 @@
     <string name="cd_caller_photo">Zdjęcie osoby dzwoniącej</string>
     <string name="cd_dismiss">Odrzuć</string>
     <string name="cd_edit_tiles">Edytuj kafelki</string>
-    <string name="cd_collapse">Zwiń</string>
-    <string name="cd_expand">Rozwiń</string>
     <!-- Game Optimization -->
     <string name="game_optimization_title">Uruchom optymalizację</string>
     <string name="game_memory_management_title">Inteligentne zarządzanie pamięcią</string>

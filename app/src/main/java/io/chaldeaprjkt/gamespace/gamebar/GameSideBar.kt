@@ -397,10 +397,22 @@ class GameSidebar(
             ).toDp()
         }
         val screenHeightDp = with(density) { safeHeight.toDp() }
+        val screenWidthDp = with(density) { (halfWidth * 2).toDp() }
+        val landscape = halfWidth * 2 > safeArea + safeHeight
         val spaceBelow = (screenHeightDp - barTopDp - navBottomDp - 16.dp).coerceAtLeast(0.dp)
         val spaceAbove = (barTopDp - navBottomDp - 16.dp).coerceAtLeast(0.dp)
-        val bottomAligned = spaceBelow < 240.dp && spaceAbove > spaceBelow
-        val panelMaxHeight = (if (bottomAligned) spaceAbove else spaceBelow).coerceIn(240.dp, 520.dp)
+        val bottomAligned = !landscape && spaceBelow < 240.dp && spaceAbove > spaceBelow
+        val panelTop = if (landscape) with(density) { safeArea.toDp() } + 12.dp else barTopDp
+        val panelMaxHeight = if (landscape) {
+            (screenHeightDp - 24.dp).coerceAtLeast(160.dp)
+        } else {
+            (if (bottomAligned) spaceAbove else spaceBelow).coerceIn(240.dp, 520.dp)
+        }
+        val panelWidth = if (landscape) {
+            minOf(PANEL_MAX_WIDTH, screenWidthDp - 24.dp - SIDE_BAR_ROOM)
+        } else {
+            (screenWidthDp - 24.dp).coerceIn(300.dp, 320.dp)
+        }
         val alignment = when {
             bottomAligned && circleOnLeft -> Alignment.BottomStart
             bottomAligned && !circleOnLeft -> Alignment.BottomEnd
@@ -419,7 +431,7 @@ class GameSidebar(
                 ) { if (!dismissing) requestDismissPanel() },
             contentAlignment = alignment,
         ) {
-            val edgePadding = if (bottomAligned) navBottomDp + 8.dp else barTopDp
+            val edgePadding = if (bottomAligned) navBottomDp + 8.dp else panelTop
             Box(
                 modifier = Modifier
                     .padding(
@@ -434,6 +446,9 @@ class GameSidebar(
                         scaleX = panelScale
                         scaleY = panelScale
                         transformOrigin = TransformOrigin(transformOriginX, transformOriginY)
+                        shadowElevation = 12.dp.toPx()
+                        shape = PanelShape
+                        clip = true
                     }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -449,6 +464,9 @@ class GameSidebar(
                     gameModeUtils = gameModeUtils,
                     systemSettings = settings,
                     tileRepository = tileRepository,
+                    panelWidth = panelWidth,
+                    twoColumns = landscape,
+                    onClose = { if (!dismissing) requestDismissPanel() },
                     maxHeight = panelMaxHeight,
                 )
             }
@@ -593,5 +611,7 @@ class GameSidebar(
 
     companion object {
         private const val IDLE_TIMEOUT_MS = 3000L
+        private val PANEL_MAX_WIDTH = 548.dp
+        private val SIDE_BAR_ROOM = 54.dp
     }
 }

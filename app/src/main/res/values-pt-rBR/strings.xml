@@ -136,8 +136,6 @@
     <string name="cd_caller_photo">Foto do chamador</string>
     <string name="cd_dismiss">Ignorar</string>
     <string name="cd_edit_tiles">Editar telas</string>
-    <string name="cd_collapse">Recolher</string>
-    <string name="cd_expand">Expandir</string>
     <!-- Game Optimization -->
     <string name="game_optimization_title">Otimização de Inicialização</string>
     <string name="game_memory_management_title">Gerenciamento inteligente de memória</string>

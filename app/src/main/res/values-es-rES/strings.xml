@@ -136,8 +136,6 @@
     <string name="cd_caller_photo">Foto de llamada</string>
     <string name="cd_dismiss">Descartar</string>
     <string name="cd_edit_tiles">Editar mosaicos</string>
-    <string name="cd_collapse">Contraer</string>
-    <string name="cd_expand">Expandir</string>
     <!-- Game Optimization -->
     <string name="game_optimization_title">Optimización de inicio</string>
     <string name="game_memory_management_title">Administración inteligente de memoria</string>

@@ -136,8 +136,6 @@
     <string name="cd_caller_photo">Fotografie apelant</string>
     <string name="cd_dismiss">Renunţaţi</string>
     <string name="cd_edit_tiles">Editare dale</string>
-    <string name="cd_collapse">Restrânge</string>
-    <string name="cd_expand">Extinde</string>
     <!-- Game Optimization -->
     <string name="game_optimization_title">Lansare optimizare</string>
     <string name="game_memory_management_title">Managementul memoriei inteligente</string>
