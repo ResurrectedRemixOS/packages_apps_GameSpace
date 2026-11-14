@@ -24,6 +24,7 @@ import android.content.*
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.hardware.display.DisplayManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Process
@@ -111,6 +112,7 @@ class GameSidebar(
 
     private val showFpsState = mutableStateOf(false)
     private val fpsTextState = mutableStateOf("")
+    private val fpsValueState = mutableFloatStateOf(0f)
     private val isLockedState = mutableStateOf(false)
     private val isIdleState = mutableStateOf(true)
     private val collapseRequestState = mutableIntStateOf(0)
@@ -118,6 +120,13 @@ class GameSidebar(
     private val pillExpandedState = mutableStateOf(false)
     private val barTopState = mutableIntStateOf(0)
     private val taskManager by lazy { ActivityTaskManager.getService() }
+    private val peakRefreshRate by lazy {
+        context.getSystemService(DisplayManager::class.java)
+            ?.getDisplay(Display.DEFAULT_DISPLAY)
+            ?.supportedModes
+            ?.maxOfOrNull { it.refreshRate }
+            ?: 60f
+    }
 
     private val taskFpsCallback = object : TaskFpsCallback() {
         override fun onFpsReported(fps: Float) {
@@ -125,7 +134,10 @@ class GameSidebar(
                 val formatted = DecimalFormat("#").apply {
                     roundingMode = RoundingMode.HALF_EVEN
                 }.format(fps)
-                handler.post { fpsTextState.value = formatted }
+                handler.post {
+                    fpsTextState.value = formatted
+                    fpsValueState.floatValue = fps
+                }
             }
         }
     }
@@ -150,6 +162,7 @@ class GameSidebar(
                             GameBarView(
                                 showFps = showFpsState.value,
                                 fpsText = fpsTextState.value,
+                                fpsProgress = fpsValueState.floatValue / peakRefreshRate,
                                 isLocked = isLockedState.value,
                                 isIdle = isIdleState.value,
                                 idleAlpha = (appSettings.iconIdleAlpha / 100f).coerceAtLeast(0.05f),

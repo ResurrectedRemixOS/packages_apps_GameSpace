@@ -19,6 +19,7 @@
 package io.chaldeaprjkt.gamespace.gamebar
 
 import kotlin.math.abs
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,7 +39,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,30 +53,56 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.android.compose.animation.scene.SceneTransitionLayout
 import com.android.compose.animation.scene.SwipeDetector
 import com.android.compose.animation.scene.rememberMutableSceneTransitionLayoutState
 import io.chaldeaprjkt.gamespace.R
+import io.chaldeaprjkt.gamespace.ui.theme.Poppins
+import io.chaldeaprjkt.gamespace.ui.theme.Tight
+import io.chaldeaprjkt.gamespace.ui.theme.drawGauge
+import io.chaldeaprjkt.gamespace.ui.theme.drawMark
+import io.chaldeaprjkt.gamespace.ui.theme.neonColors
+import io.chaldeaprjkt.gamespace.ui.theme.neonGlow
+import io.chaldeaprjkt.gamespace.ui.theme.neonHalo
 
-private const val PILL_WIDTH_DP = 36
-private const val PILL_BUTTON_SIZE_DP = 40
-private const val NOTCH_WIDTH_DP = 14
-private const val NOTCH_HEIGHT_DP = 36
+private const val PILL_WIDTH_DP = 54
+private const val PILL_BUTTON_SIZE_DP = 44
+private const val NOTCH_WIDTH_DP = 16
+private const val NOTCH_HEIGHT_DP = 60
 private const val NOTCH_CHEVRON_SIZE_DP = 10
 private const val NOTCH_TOUCH_WIDTH_DP = 28
 private const val DRAG_THRESHOLD_DP = 12
+
+private val BarBackground = Color(0xD60A0A0C)
+private val PillBackground = Color(0xD10C0C0E)
 
 @Composable
 fun GameBarView(
     showFps: Boolean,
     fpsText: String,
+    fpsProgress: Float,
     isLocked: Boolean,
     isIdle: Boolean,
     idleAlpha: Float,
@@ -168,9 +194,6 @@ fun GameBarView(
             )
         }
 
-    val density = LocalDensity.current
-    val barTopDp = with(density) { barTopPx.toDp() }
-
     val sceneContent = @Composable {
         SceneTransitionLayout(
             state = state,
@@ -181,6 +204,7 @@ fun GameBarView(
                     dockedOnLeft = dockedOnLeft,
                     showFps = showFps,
                     fpsText = fpsText,
+                    fpsProgress = fpsProgress,
                     idleAlpha = animatedPillAlpha,
                     pointerModifier = pointerModifier,
                     onTap = {
@@ -207,7 +231,6 @@ fun GameBarView(
     }
 
     if (pillExpanded) {
-        val dismissAlignment = if (dockedOnLeft) Alignment.TopStart else Alignment.TopEnd
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
@@ -223,8 +246,19 @@ fun GameBarView(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = barTopDp),
-                contentAlignment = dismissAlignment,
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(
+                            constraints.copy(minWidth = 0, minHeight = 0)
+                        )
+                        layout(constraints.maxWidth, constraints.maxHeight) {
+                            placeable.placeRelative(
+                                if (dockedOnLeft) 0 else constraints.maxWidth - placeable.width,
+                                barTopPx.coerceAtMost(
+                                    constraints.maxHeight - placeable.height - 8.dp.roundToPx()
+                                ).coerceAtLeast(0),
+                            )
+                        }
+                    },
             ) {
                 sceneContent()
             }
@@ -234,18 +268,20 @@ fun GameBarView(
     }
 }
 
-private const val FPS_CIRCLE_SIZE_DP = 28
+private const val FPS_CIRCLE_SIZE_DP = 40
 
 @Composable
 private fun PillTab(
     dockedOnLeft: Boolean,
     showFps: Boolean,
     fpsText: String,
+    fpsProgress: Float,
     idleAlpha: Float,
     pointerModifier: Modifier,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = neonColors()
     if (showFps) {
         Box(
             modifier = modifier
@@ -253,23 +289,31 @@ private fun PillTab(
                 .alpha(idleAlpha)
                 .then(pointerModifier)
                 .pointerInput(onTap) { detectTapGestures(onTap = { onTap() }) }
-                .border(0.5.dp, Color.White.copy(alpha = 0.4f), CircleShape)
                 .clip(CircleShape)
-                .background(Color(0xCC1A1A1A)),
+                .background(BarBackground)
+                .drawBehind {
+                    drawGauge(
+                        progress = fpsProgress,
+                        radius = size.width * 19f / 46f,
+                        stroke = size.width * 3.5f / 46f,
+                        color = colors.accent,
+                        track = Color.White.copy(alpha = 0.12f),
+                    )
+                },
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = fpsText,
                 color = Color.White,
-                style = MaterialTheme.typography.labelSmall,
+                fontFamily = Poppins,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                lineHeight = 12.sp,
+                maxLines = 1,
+                style = Tight,
             )
         }
     } else {
-        val notchShape = if (dockedOnLeft) {
-            RoundedCornerShape(topEndPercent = 100, bottomEndPercent = 100)
-        } else {
-            RoundedCornerShape(topStartPercent = 100, bottomStartPercent = 100)
-        }
         Box(
             modifier = modifier
                 .width(NOTCH_TOUCH_WIDTH_DP.dp)
@@ -282,24 +326,67 @@ private fun PillTab(
                 modifier = Modifier
                     .width(NOTCH_WIDTH_DP.dp)
                     .height(NOTCH_HEIGHT_DP.dp)
-                    .alpha(idleAlpha)
-                    .border(0.5.dp, Color.White.copy(alpha = 0.35f), notchShape)
-                    .clip(notchShape)
-                    .background(Color(0xCC1A1A1A)),
+                    .graphicsLayer {
+                        alpha = idleAlpha
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    }
+                    .drawWithCache {
+                        val bleed = 2.dp.toPx()
+                        val corner = CornerRadius(size.width)
+                        val roundRight = dockedOnLeft != (layoutDirection == LayoutDirection.Rtl)
+                        val notch = Path().apply {
+                            addRoundRect(
+                                if (roundRight) {
+                                    RoundRect(
+                                        -bleed, 0f, size.width, size.height,
+                                        topRightCornerRadius = corner,
+                                        bottomRightCornerRadius = corner,
+                                    )
+                                } else {
+                                    RoundRect(
+                                        0f, 0f, size.width + bleed, size.height,
+                                        topLeftCornerRadius = corner,
+                                        bottomLeftCornerRadius = corner,
+                                    )
+                                }
+                            )
+                        }
+                        val glowWide = Stroke(8.dp.toPx())
+                        val glowNear = Stroke(4.dp.toPx())
+                        val edge = Stroke(1.dp.toPx())
+                        onDrawWithContent {
+                            drawPath(notch, colors.accent.copy(alpha = 0.1f), style = glowWide)
+                            drawPath(notch, colors.accent.copy(alpha = 0.2f), style = glowNear)
+                            drawPath(notch, BarBackground)
+                            drawPath(notch, colors.accent.copy(alpha = 0.5f), style = edge)
+                            drawContent()
+                        }
+                    },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    painter = painterResource(
-                        if (dockedOnLeft) R.drawable.ic_arrow_left
-                        else R.drawable.ic_arrow_right
-                    ),
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.85f),
-                    modifier = Modifier.size(NOTCH_CHEVRON_SIZE_DP.dp),
-                )
+                Canvas(modifier = Modifier.size(NOTCH_CHEVRON_SIZE_DP.dp)) {
+                    drawChevron(pointsRight = dockedOnLeft, color = colors.bright)
+                }
             }
         }
     }
+}
+
+private fun DrawScope.drawChevron(pointsRight: Boolean, color: Color) {
+    val k = size.width / 24f
+    val tip = if (pointsRight) 15f else 9f
+    val tail = if (pointsRight) 9f else 15f
+    val chevron = Path().apply {
+        moveTo(tail * k, 6f * k)
+        lineTo(tip * k, 12f * k)
+        lineTo(tail * k, 18f * k)
+    }
+    drawPath(
+        chevron,
+        color.copy(alpha = 0.25f),
+        style = Stroke(7.8f * k, cap = StrokeCap.Round, join = StrokeJoin.Round),
+    )
+    drawPath(chevron, color, style = Stroke(3f * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
 }
 
 @Composable
@@ -314,6 +401,7 @@ private fun VerticalPill(
     onMapControls: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = neonColors()
     val pillShape = RoundedCornerShape((PILL_WIDTH_DP / 2).dp)
     Column(
         modifier = modifier
@@ -322,59 +410,82 @@ private fun VerticalPill(
                 end = if (dockedOnLeft) 0.dp else 12.dp,
             )
             .width(PILL_WIDTH_DP.dp)
-            .background(color = Color(0xCC1A1A1A), shape = pillShape)
-            .clip(pillShape),
+            .neonGlow(pillShape, colors.accent, 6.dp)
+            .background(color = PillBackground, shape = pillShape)
+            .border(1.dp, colors.accent.copy(alpha = 0.5f), pillShape)
+            .clip(pillShape)
+            .padding(top = 10.dp, bottom = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        IconButton(
+        Canvas(modifier = Modifier.size(width = 26.dp, height = 19.dp)) {
+            drawMark(colors.bright)
+        }
+        Box(
+            modifier = Modifier
+                .padding(top = 8.dp, bottom = 4.dp)
+                .size(width = 22.dp, height = 1.dp)
+                .background(Color.White.copy(alpha = 0.14f)),
+        )
+        PillButton(
+            icon = R.drawable.ic_fps,
+            on = showFps,
+            contentDescription = stringResource(R.string.tile_fps_info),
             onClick = onToggleFps,
-            modifier = Modifier.size(PILL_BUTTON_SIZE_DP.dp),
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_fps),
-                contentDescription = null,
-                tint = if (showFps) MaterialTheme.colorScheme.primary else Color.White,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        IconButton(
+        )
+        PillButton(
+            icon = R.drawable.materialsymbols_ic_dashboard_rounded_filled,
+            on = false,
+            contentDescription = stringResource(R.string.settings_title),
             onClick = onShowPanel,
-            modifier = Modifier.size(PILL_BUTTON_SIZE_DP.dp),
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.materialsymbols_ic_dashboard_rounded_filled),
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        IconButton(
+        )
+        PillButton(
+            icon = if (isLocked) R.drawable.materialsymbols_ic_lock_rounded_filled
+            else R.drawable.materialsymbols_ic_lock_open_rounded_filled,
+            on = isLocked,
+            contentDescription = stringResource(R.string.lock_gesture_title),
             onClick = onToggleLock,
-            modifier = Modifier.size(PILL_BUTTON_SIZE_DP.dp),
-        ) {
-            Icon(
-                painter = painterResource(
-                    if (isLocked) R.drawable.materialsymbols_ic_lock_rounded_filled
-                    else R.drawable.materialsymbols_ic_lock_open_rounded_filled
-                ),
-                contentDescription = null,
-                tint = if (isLocked) MaterialTheme.colorScheme.primary else Color.White,
-                modifier = Modifier.size(20.dp),
+        )
+        if (mapperEnabled) {
+            PillButton(
+                icon = R.drawable.materialsymbols_ic_sports_esports_rounded_filled,
+                on = false,
+                contentDescription = stringResource(R.string.mapper_map_controls),
+                onClick = onMapControls,
             )
         }
-        if (mapperEnabled) {
-            IconButton(
-                onClick = onMapControls,
-                modifier = Modifier.size(PILL_BUTTON_SIZE_DP.dp),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.materialsymbols_ic_sports_esports_rounded_filled),
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
+    }
+}
+
+@Composable
+private fun PillButton(
+    icon: Int,
+    on: Boolean,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    val colors = neonColors()
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(PILL_BUTTON_SIZE_DP.dp)
+            .then(
+                if (on) {
+                    Modifier
+                        .background(colors.accent.copy(alpha = 0.18f), CircleShape)
+                        .border(1.dp, colors.accent.copy(alpha = 0.5f), CircleShape)
+                } else {
+                    Modifier
+                }
+            ),
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = contentDescription,
+            tint = if (on) colors.bright else Color.White,
+            modifier = Modifier
+                .size(20.dp)
+                .then(if (on) Modifier.neonHalo(colors.accent) else Modifier),
+        )
     }
 }
