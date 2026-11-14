@@ -183,7 +183,9 @@ class TileRepository @Inject constructor(
         return if (savedOrder.isNotEmpty()) {
             savedOrder.filter { id -> defaultTiles.any { it.id == id } }
         } else {
-            defaultTiles.map { it.id }
+            val ids = defaultTiles.map { it.id }
+            val first = DEFAULT_FIRST_TILES.filter { it in ids }
+            first + ids.filterNot { it in first }
         }
     }
 
@@ -491,5 +493,18 @@ class TileRepository @Inject constructor(
                 )
             )
         }
+    }
+
+    companion object {
+        private val DEFAULT_FIRST_TILES = listOf(
+            AxPlatformClient.FEATURE_ZEN,
+            "notification",
+            "stay_awake",
+            "crosshair",
+            AxPlatformClient.FEATURE_SCREENSHOT,
+            AxPlatformClient.FEATURE_SCREEN_RECORD,
+            "boost_memory",
+            AxPlatformClient.FEATURE_ROTATION,
+        )
     }
 }
