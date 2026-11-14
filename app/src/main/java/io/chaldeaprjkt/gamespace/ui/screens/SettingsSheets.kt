@@ -24,18 +24,21 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.chaldeaprjkt.gamespace.R
 import io.chaldeaprjkt.gamespace.ui.components.*
+import io.chaldeaprjkt.gamespace.ui.theme.neonColors
 import io.chaldeaprjkt.gamespace.ui.viewmodel.RegisteredGame
 import io.chaldeaprjkt.gamespace.ui.viewmodel.SettingsViewModel
 import io.chaldeaprjkt.gamespace.utils.GameModeUtils
 
 @Composable
 fun AppPickerSheet(viewModel: SettingsViewModel, quickStart: Boolean, onDismiss: () -> Unit) {
+    val accent = neonColors().accent
     var query by rememberSaveable { mutableStateOf("") }
     var selected by rememberSaveable {
         mutableStateOf(viewModel.quickStartApps.split(',').filter { it.isNotBlank() }.distinct())
@@ -151,7 +154,16 @@ fun AppPickerSheet(viewModel: SettingsViewModel, quickStart: Boolean, onDismiss:
                                             Modifier.weight(1f),
                                             style = MaterialTheme.typography.titleMedium,
                                         )
-                                        if (quickStart) Checkbox(checked, onCheckedChange = null)
+                                        if (quickStart)
+                                            Checkbox(
+                                                checked,
+                                                onCheckedChange = null,
+                                                colors =
+                                                    CheckboxDefaults.colors(
+                                                        checkedColor = accent,
+                                                        checkmarkColor = Color.White,
+                                                    ),
+                                            )
                                         else Icon(Icons.Rounded.Add, null)
                                     }
                                 }
@@ -172,6 +184,11 @@ fun AppPickerSheet(viewModel: SettingsViewModel, quickStart: Boolean, onDismiss:
                             onDismiss()
                         },
                         modifier = Modifier.weight(1f).heightIn(min = 56.dp),
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = accent,
+                                contentColor = Color.White,
+                            ),
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(stringResource(R.string.save))
@@ -193,6 +210,7 @@ fun AppPickerSheet(viewModel: SettingsViewModel, quickStart: Boolean, onDismiss:
 
 @Composable
 fun GameOptionsSheet(game: RegisteredGame, viewModel: SettingsViewModel, onDismiss: () -> Unit) {
+    val accent = neonColors().accent
     var modeDialog by rememberSaveable { mutableStateOf(false) }
     var driverDialog by rememberSaveable { mutableStateOf(false) }
     var removeDialog by rememberSaveable { mutableStateOf(false) }
@@ -237,6 +255,8 @@ fun GameOptionsSheet(game: RegisteredGame, viewModel: SettingsViewModel, onDismi
                     onDismiss()
                 },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                colors =
+                    ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.White),
             ) {
                 Icon(Icons.Rounded.PlayArrow, null)
                 Spacer(Modifier.width(8.dp))
@@ -245,7 +265,7 @@ fun GameOptionsSheet(game: RegisteredGame, viewModel: SettingsViewModel, onDismi
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
-            SettingsGroup(stringResource(R.string.game_options_title), Icons.Rounded.Tune) {
+            SettingsGroup(stringResource(R.string.game_options_title)) {
                 SettingsAction(
                     stringResource(R.string.per_app_mode_title),
                     gameModeLabel(game.mode),

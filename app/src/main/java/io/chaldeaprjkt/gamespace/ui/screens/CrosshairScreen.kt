@@ -74,7 +74,7 @@ fun CrosshairScreen(viewModel: SettingsViewModel, listState: LazyListState, bott
     LazyColumn(
         state = listState,
         contentPadding =
-            PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = bottomPadding + 8.dp),
+            PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPadding + 8.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         item(key = "heading") {
@@ -85,7 +85,7 @@ fun CrosshairScreen(viewModel: SettingsViewModel, listState: LazyListState, bott
         }
         item(key = "preview") { CrosshairPreview(viewModel) }
         item(key = "enabled") {
-            Surface(shape = MaterialTheme.shapes.large) {
+            Surface(shape = RoundedCornerShape(20.dp)) {
                 SettingsToggle(
                     stringResource(R.string.crosshair_settings_title),
                     stringResource(R.string.crosshair_settings_summary),
@@ -101,12 +101,9 @@ fun CrosshairScreen(viewModel: SettingsViewModel, listState: LazyListState, bott
                 exit = fadeOut() + shrinkVertically(),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
-                    SettingsGroup(
-                        stringResource(R.string.crosshair_appearance),
-                        Icons.Rounded.Palette,
-                    ) {
+                    SettingsGroup(stringResource(R.string.crosshair_appearance)) {
                         Surface(
-                            color = MaterialTheme.colorScheme.surfaceBright,
+                            color = MaterialTheme.colorScheme.surfaceContainer,
                             shape = RoundedCornerShape(4.dp),
                         ) {
                             Column(
@@ -240,10 +237,7 @@ fun CrosshairScreen(viewModel: SettingsViewModel, listState: LazyListState, bott
                             viewModel::updateCrosshairOpacity,
                         )
                     }
-                    SettingsGroup(
-                        stringResource(R.string.crosshair_position),
-                        Icons.Rounded.OpenWith,
-                    ) {
+                    SettingsGroup(stringResource(R.string.crosshair_position)) {
                         SettingsSlider(
                             stringResource(R.string.crosshair_offset_x_title),
                             viewModel.crosshairOffsetX.toFloat(),

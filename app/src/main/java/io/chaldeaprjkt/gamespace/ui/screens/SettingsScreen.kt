@@ -12,11 +12,15 @@ package io.chaldeaprjkt.gamespace.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
@@ -25,14 +29,34 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import io.chaldeaprjkt.gamespace.R
 import io.chaldeaprjkt.gamespace.ui.components.*
+import io.chaldeaprjkt.gamespace.ui.theme.NeonCaps
+import io.chaldeaprjkt.gamespace.ui.theme.NeonText
+import io.chaldeaprjkt.gamespace.ui.theme.Poppins
+import io.chaldeaprjkt.gamespace.ui.theme.Tight
+import io.chaldeaprjkt.gamespace.ui.theme.drawMarkOutline
+import io.chaldeaprjkt.gamespace.ui.theme.neonCard
+import io.chaldeaprjkt.gamespace.ui.theme.neonColors
+import io.chaldeaprjkt.gamespace.ui.theme.neonHalo
 import io.chaldeaprjkt.gamespace.ui.viewmodel.SettingsViewModel
+import io.chaldeaprjkt.gamespace.utils.GameModeUtils
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
@@ -52,6 +76,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val showTitle by remember(listState) { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
     val snackbar = remember { SnackbarHostState() }
     val motion = MaterialTheme.motionScheme
+    val background = MaterialTheme.colorScheme.surfaceContainerLowest
     val title =
         stringResource(
             when (tab) {
@@ -64,7 +89,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
         viewModel.loadAvailableApps()
         picker = it
     }
-    BackHandler(enabled = tab != 0 && picker == null && selectedGame == null) { tab = 0 }
+    val goBack = { tab = if (tab == 2) 1 else 0 }
+    BackHandler(enabled = tab != 0 && picker == null && selectedGame == null) { goBack() }
     LaunchedEffect(viewModel.message) {
         viewModel.message?.let {
             snackbar.showSnackbar(it)
@@ -72,7 +98,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
         }
     }
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = background,
         contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
@@ -82,7 +108,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { if (tab != 0) tab = 0 else onBack() }) {
+                    IconButton(onClick = { if (tab != 0) goBack() else onBack() }) {
                         Icon(
                             Icons.AutoMirrored.Rounded.ArrowBack,
                             stringResource(R.string.action_back),
@@ -97,13 +123,10 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                         Spacer(Modifier.width(12.dp))
                     }
                 },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = background),
             )
         },
-        bottomBar = { SettingsNavigation(tab, onSelect = { tab = it }) },
+        bottomBar = { SettingsNavigation(minOf(tab, 1), onSelect = { tab = it }) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Box(
@@ -139,6 +162,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                             viewModel,
                             settingsScroll,
                             { openPicker("quick_start") },
+                            { tab = 2 },
                             bottomPadding = padding.calculateBottomPadding(),
                         )
                     else ->
@@ -174,83 +198,22 @@ private fun GamesPage(
     onGame: (String) -> Unit,
     bottomPadding: Dp,
 ) {
+    val games = viewModel.registeredGames
     LazyColumn(
         state = listState,
         contentPadding =
-            PaddingValues(start = 20.dp, end = 20.dp, bottom = bottomPadding + 16.dp, top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+            PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomPadding + 16.dp, top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        item(key = "heading") {
-            SettingsHeading(
-                stringResource(R.string.settings_title),
-                stringResource(R.string.settings_library_subtitle),
-            )
-        }
-        item(key = "library") {
-            Surface(
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.primaryContainer,
-            ) {
-                Column(
-                    Modifier.fillMaxWidth().padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(20.dp),
-                    ) {
-                        GameEmblem(
-                            Icons.Rounded.SportsEsports,
-                            Modifier.size(80.dp),
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.onPrimary,
-                        )
-                        Column(
-                            Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text(
-                                stringResource(R.string.library_hero_title),
-                                style = MaterialTheme.typography.headlineSmallEmphasized,
-                            )
-                            Text(
-                                pluralStringResource(
-                                    R.plurals.library_game_count,
-                                    viewModel.registeredGames.size,
-                                    viewModel.registeredGames.size,
-                                ),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                        }
-                    }
-                    Text(
-                        stringResource(R.string.library_hero_summary),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Button(
-                        onClick = onAdd,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                    ) {
-                        Icon(Icons.Rounded.Add, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            stringResource(R.string.add_game),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                    }
-                }
-            }
-        }
+        item(key = "library") { LibraryHero(games.size, onAdd) }
         item(key = "detection") {
-            Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-                Surface(shape = MaterialTheme.shapes.large) {
-                    SettingsToggle(
-                        stringResource(R.string.auto_game_detect_title),
-                        stringResource(R.string.auto_game_detect_summary),
-                        viewModel.autoGameDetect,
-                        viewModel::updateAutoGameDetect,
-                    )
-                }
+            Surface(Modifier.padding(top = 14.dp), shape = RoundedCornerShape(20.dp)) {
+                SettingsToggle(
+                    stringResource(R.string.auto_game_detect_title),
+                    stringResource(R.string.auto_game_detect_summary),
+                    viewModel.autoGameDetect,
+                    viewModel::updateAutoGameDetect,
+                )
             }
         }
         if (viewModel.gamesLoading) {
@@ -259,7 +222,7 @@ private fun GamesPage(
                     LoadingIndicator()
                 }
             }
-        } else if (viewModel.registeredGames.isEmpty()) {
+        } else if (games.isEmpty()) {
             item(key = "empty") {
                 Column(
                     Modifier.fillMaxWidth().padding(vertical = 24.dp),
@@ -284,27 +247,56 @@ private fun GamesPage(
                 }
             }
         } else {
-            items(viewModel.registeredGames, key = { it.packageName }) { game ->
-                ExpressiveActionCard(onClick = { onGame(game.packageName) }) {
+            item(key = "library_title") {
+                SettingsSectionTitle(
+                    stringResource(R.string.game_list_title),
+                    Modifier.padding(top = 22.dp, bottom = 8.dp),
+                )
+            }
+            itemsIndexed(games, key = { _, game -> game.packageName }) { index, game ->
+                ExpressiveActionCard(
+                    onClick = { onGame(game.packageName) },
+                    shape = groupedShape(index, games.size),
+                ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        Modifier.fillMaxWidth().padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        GameAppIcon(game.icon, Modifier.size(56.dp))
+                        GameAppIcon(game.icon, Modifier.size(52.dp))
                         Column(
                             Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Text(game.label, style = MaterialTheme.typography.titleMediumEmphasized)
                             Text(
-                                gameModeLabel(game.mode),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                game.label,
+                                fontFamily = Poppins,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
+                                lineHeight = 18.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                GameModeChip(game.mode)
+                                Text(
+                                    stringResource(
+                                        R.string.game_driver_summary,
+                                        gameDriverLabel(game.driver),
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                         FilledTonalIconButton(
-                            onClick = { viewModel.launchGame(game.packageName) }
+                            onClick = { viewModel.launchGame(game.packageName) },
+                            modifier = Modifier.size(44.dp),
                         ) {
                             Icon(Icons.Rounded.PlayArrow, stringResource(R.string.launch_game))
                         }
@@ -316,10 +308,143 @@ private fun GamesPage(
 }
 
 @Composable
+private fun LibraryHero(count: Int, onAdd: () -> Unit) {
+    val colors = neonColors()
+    val shape = RoundedCornerShape(24.dp)
+    Column(
+        Modifier.fillMaxWidth()
+            .heightIn(min = 214.dp)
+            .clip(shape)
+            .neonCard(colors)
+            .drawBehind {
+                drawMarkOutline(
+                    left = size.width - 192.dp.toPx(),
+                    top = -24.dp.toPx(),
+                    width = 236.dp.toPx(),
+                    stroke = 1.65.dp.toPx(),
+                    color = colors.accent,
+                    alpha = 0.55f,
+                )
+            }
+            .border(1.dp, Color.White.copy(alpha = 0.06f), shape)
+            .padding(20.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                Icons.Rounded.SportsEsports,
+                null,
+                Modifier.size(18.dp).neonHalo(colors.accent),
+                tint = colors.bright,
+            )
+            NeonCaps(
+                stringResource(R.string.settings_title).uppercase(Locale.getDefault()),
+                colors.text,
+                fontSize = 10.sp,
+                letterSpacing = 0.2.em,
+            )
+        }
+        Spacer(Modifier.height(26.dp))
+        Text(
+            stringResource(R.string.library_hero_title),
+            Modifier.semantics { heading() },
+            color = Color.White,
+            fontFamily = Poppins,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 25.sp,
+            lineHeight = 29.sp,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            stringResource(R.string.library_hero_summary),
+            Modifier.widthIn(max = 250.dp),
+            color = Color(0xFFD9D6DC),
+            fontSize = 13.5.sp,
+            lineHeight = 19.sp,
+        )
+        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.weight(1f))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Button(
+                onClick = onAdd,
+                modifier = Modifier.heightIn(min = 44.dp),
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color(0xFF141416),
+                    ),
+                contentPadding = PaddingValues(start = 14.dp, end = 18.dp),
+            ) {
+                Icon(Icons.Rounded.Add, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    stringResource(R.string.add_game),
+                    fontFamily = Poppins,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                )
+            }
+            Text(
+                pluralStringResource(R.plurals.library_game_count, count, count),
+                Modifier.border(1.dp, colors.accent.copy(alpha = 0.5f), CircleShape)
+                    .background(Color.Black.copy(alpha = 0.25f), CircleShape)
+                    .padding(horizontal = 11.dp, vertical = 8.dp),
+                color = NeonText,
+                fontFamily = Poppins,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.sp,
+                lineHeight = 11.sp,
+                maxLines = 1,
+                style = Tight,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GameModeChip(mode: Int) {
+    val performance = mode == 2
+    val accent = neonColors().accent
+    val scheme = MaterialTheme.colorScheme
+    Text(
+        gameModeLabel(mode),
+        Modifier.border(
+                1.dp,
+                if (performance) accent.copy(alpha = 0.6f) else scheme.onSurface.copy(alpha = 0.14f),
+                CircleShape,
+            )
+            .background(
+                if (performance) accent.copy(alpha = 0.18f) else scheme.onSurface.copy(alpha = 0.04f),
+                CircleShape,
+            )
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        color = if (performance) scheme.onSurface else scheme.onSurfaceVariant,
+        fontFamily = Poppins,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 10.5.sp,
+        lineHeight = 10.5.sp,
+        maxLines = 1,
+        style = Tight,
+    )
+}
+
+private fun groupedShape(index: Int, count: Int): Shape {
+    val top = if (index == 0) 20.dp else 4.dp
+    val bottom = if (index == count - 1) 20.dp else 4.dp
+    return RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
+}
+
+@Composable
 private fun OptionsPage(
     viewModel: SettingsViewModel,
     listState: LazyListState,
     onQuickStart: () -> Unit,
+    onCrosshair: () -> Unit,
     bottomPadding: Dp,
 ) {
     var choice by rememberSaveable { mutableStateOf<String?>(null) }
@@ -340,8 +465,8 @@ private fun OptionsPage(
     LazyColumn(
         state = listState,
         contentPadding =
-            PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = bottomPadding + 8.dp),
-        verticalArrangement = Arrangement.spacedBy(28.dp),
+            PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPadding + 8.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         item(key = "heading") {
             SettingsHeading(
@@ -350,10 +475,7 @@ private fun OptionsPage(
             )
         }
         item(key = "notifications") {
-            SettingsGroup(
-                stringResource(R.string.settings_notifications),
-                Icons.Rounded.Notifications,
-            ) {
+            SettingsGroup(stringResource(R.string.settings_notifications)) {
                 SettingsToggle(
                     stringResource(R.string.auto_dnd_title),
                     stringResource(R.string.auto_dnd_summary),
@@ -387,7 +509,7 @@ private fun OptionsPage(
             }
         }
         item(key = "display") {
-            SettingsGroup(stringResource(R.string.settings_display), Icons.Rounded.TouchApp) {
+            SettingsGroup(stringResource(R.string.settings_display)) {
                 SettingsToggle(
                     stringResource(R.string.auto_brightness_disabled_title),
                     stringResource(R.string.auto_brightness_disabled_summary),
@@ -421,7 +543,7 @@ private fun OptionsPage(
             }
         }
         item(key = "sidebar") {
-            SettingsGroup(stringResource(R.string.settings_sidebar), Icons.Rounded.Dashboard) {
+            SettingsGroup(stringResource(R.string.settings_sidebar)) {
                 SettingsToggle(
                     stringResource(R.string.music_player_enabled_title),
                     stringResource(R.string.music_player_enabled_summary),
@@ -437,6 +559,11 @@ private fun OptionsPage(
                     ),
                     onQuickStart,
                 )
+                SettingsAction(
+                    stringResource(R.string.crosshair_settings_title),
+                    stringResource(R.string.crosshair_settings_summary),
+                    onCrosshair,
+                )
                 SettingsSlider(
                     stringResource(R.string.icon_idle_opacity_title),
                     viewModel.iconIdleAlpha,
@@ -446,11 +573,12 @@ private fun OptionsPage(
                     ),
                     5f..100f,
                     viewModel::updateIconIdleAlpha,
+                    summary = stringResource(R.string.icon_idle_opacity_summary),
                 )
             }
         }
         item(key = "optimization") {
-            SettingsGroup(stringResource(R.string.game_optimization_title), Icons.Rounded.Bolt) {
+            SettingsGroup(stringResource(R.string.game_optimization_title)) {
                 SettingsToggle(
                     stringResource(R.string.game_memory_management_title),
                     stringResource(R.string.game_memory_management_summary),
@@ -503,5 +631,15 @@ internal fun gameModeLabel(mode: Int): String =
             2 -> R.string.game_mode_performance
             3 -> R.string.game_mode_battery
             else -> R.string.game_mode_balanced
+        }
+    )
+
+@Composable
+private fun gameDriverLabel(choice: String): String =
+    stringResource(
+        when (choice) {
+            GameModeUtils.DRIVER_CHOICE_ANGLE -> R.string.game_driver_angle
+            GameModeUtils.DRIVER_CHOICE_NATIVE -> R.string.game_driver_native
+            else -> R.string.game_driver_default
         }
     )

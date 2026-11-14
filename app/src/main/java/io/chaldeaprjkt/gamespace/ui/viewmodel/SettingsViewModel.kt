@@ -45,6 +45,7 @@ data class RegisteredGame(
     val label: String,
     val icon: Drawable?,
     val mode: Int,
+    val driver: String,
 )
 
 @HiltViewModel
@@ -350,6 +351,7 @@ constructor(
                                         info.loadLabel(pm).toString(),
                                         info.loadIcon(pm),
                                         game.mode,
+                                        gameModeUtils.getAngleDriverChoice(game.packageName),
                                     )
                                 } catch (_: PackageManager.NameNotFoundException) {
                                     null
@@ -477,5 +479,6 @@ constructor(
 
     fun updateAngleDriverChoice(packageName: String, choice: String) {
         gameModeUtils.setAngleDriverChoice(packageName, choice)
+        loadRegisteredGames()
     }
 }

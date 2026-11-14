@@ -11,6 +11,7 @@ import android.graphics.drawable.Drawable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -22,14 +23,19 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,8 +44,19 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
+import io.chaldeaprjkt.gamespace.ui.theme.Poppins
+import io.chaldeaprjkt.gamespace.ui.theme.drawMarkOutline
+import io.chaldeaprjkt.gamespace.ui.theme.neonCard
+import io.chaldeaprjkt.gamespace.ui.theme.neonColors
+import io.chaldeaprjkt.gamespace.ui.theme.neonSwitchColors
+
+private val RowShape = RoundedCornerShape(4.dp)
 
 @Composable
 fun GameEmblem(
@@ -68,40 +85,77 @@ fun GameAppIcon(icon: Drawable?, modifier: Modifier = Modifier) {
 
 @Composable
 fun SettingsHeading(title: String, subtitle: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            title,
-            Modifier.semantics { heading() },
-            style = MaterialTheme.typography.displaySmallEmphasized,
-        )
-        Text(
-            subtitle,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    val colors = neonColors()
+    val shape = RoundedCornerShape(24.dp)
+    Box(
+        Modifier.fillMaxWidth()
+            .heightIn(min = 132.dp)
+            .clip(shape)
+            .neonCard(colors)
+            .drawBehind {
+                drawMarkOutline(
+                    left = size.width - 128.dp.toPx(),
+                    top = -16.dp.toPx(),
+                    width = 150.dp.toPx(),
+                    stroke = 1.5.dp.toPx(),
+                    color = colors.accent,
+                    alpha = 0.5f,
+                )
+            }
+            .border(1.dp, Color.White.copy(alpha = 0.06f), shape),
+        contentAlignment = Alignment.BottomStart,
+    ) {
+        Column(
+            Modifier.padding(start = 20.dp, end = 20.dp, top = 56.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                title,
+                Modifier.semantics { heading() },
+                color = Color.White,
+                fontFamily = Poppins,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 22.sp,
+                lineHeight = 25.sp,
+            )
+            Text(subtitle, color = Color(0xFFD9D6DC), fontSize = 13.sp, lineHeight = 17.sp)
+        }
+    }
+}
+
+@Composable
+fun SettingsSectionTitle(title: String, modifier: Modifier = Modifier) {
+    Text(
+        title,
+        modifier.padding(horizontal = 16.dp).semantics { heading() },
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+    )
+}
+
+@Composable
+fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SettingsSectionTitle(title)
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            content = content,
         )
     }
 }
 
 @Composable
-fun SettingsGroup(title: String, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(
-            Modifier.padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            GameEmblem(icon, Modifier.size(36.dp))
+private fun SettingsRowText(title: String, summary: String?, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, style = MaterialTheme.typography.bodyLarge)
+        if (summary != null) {
             Text(
-                title,
-                Modifier.semantics { heading() },
-                style = MaterialTheme.typography.titleLargeEmphasized,
+                summary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-            content = content,
-        )
     }
 }
 
@@ -113,33 +167,21 @@ fun SettingsToggle(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceBright,
-        shape = RoundedCornerShape(4.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RowShape,
     ) {
         Row(
             Modifier.fillMaxWidth()
                 .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 13.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                if (summary != null) {
-                    Text(
-                        summary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            SettingsRowText(title, summary, Modifier.weight(1f))
             Switch(
                 checked = checked,
                 onCheckedChange = null,
-                thumbContent =
-                    if (checked) {
-                        { Icon(Icons.Rounded.Check, null, Modifier.size(SwitchDefaults.IconSize)) }
-                    } else null,
+                colors = neonSwitchColors(),
             )
         }
     }
@@ -149,26 +191,17 @@ fun SettingsToggle(
 fun SettingsAction(title: String, summary: String?, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        color = MaterialTheme.colorScheme.surfaceBright,
-        shape = RoundedCornerShape(4.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RowShape,
     ) {
         Row(
             Modifier.fillMaxWidth()
-                .heightIn(min = 72.dp)
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .heightIn(min = 64.dp)
+                .padding(horizontal = 16.dp, vertical = 13.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                if (summary != null) {
-                    Text(
-                        summary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            SettingsRowText(title, summary, Modifier.weight(1f))
             Icon(
                 Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 null,
@@ -186,39 +219,62 @@ fun SettingsSlider(
     valueRange: ClosedFloatingPointRange<Float>,
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    summary: String? = null,
 ) {
+    val accent = neonColors().accent
+    val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
     Surface(
         modifier,
-        color = MaterialTheme.colorScheme.surfaceBright,
-        shape = RoundedCornerShape(4.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RowShape,
     ) {
-        Column(
-            Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 2.dp)) {
+            SettingsRowText(title, summary)
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = MaterialTheme.shapes.large,
-                ) {
-                    Text(
-                        valueLabel,
-                        Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
+                Slider(
+                    value = value.coerceIn(valueRange),
+                    onValueChange = onValueChange,
+                    valueRange = valueRange,
+                    modifier = Modifier.weight(1f).semantics { contentDescription = title },
+                    thumb = { Spacer(Modifier.size(16.dp)) },
+                    track = { state ->
+                        Box(
+                            Modifier.fillMaxWidth().height(16.dp).drawWithCache {
+                                val inset = size.height / 2f
+                                val corner = CornerRadius(inset)
+                                val rtl = layoutDirection == LayoutDirection.Rtl
+                                onDrawBehind {
+                                    drawRoundRect(
+                                        color = trackColor,
+                                        topLeft = Offset(-inset, 0f),
+                                        size = Size(size.width + inset * 2f, size.height),
+                                        cornerRadius = corner,
+                                    )
+                                    val fill = size.width * state.coercedValueAsFraction + inset * 2f
+                                    drawRoundRect(
+                                        color = accent,
+                                        topLeft = Offset(if (rtl) size.width + inset - fill else -inset, 0f),
+                                        size = Size(fill, size.height),
+                                        cornerRadius = corner,
+                                    )
+                                }
+                            }
+                        )
+                    },
+                )
+                Text(
+                    valueLabel,
+                    Modifier.widthIn(min = 34.dp),
+                    fontFamily = Poppins,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.End,
+                )
             }
-            Slider(
-                value = value.coerceIn(valueRange),
-                onValueChange = onValueChange,
-                valueRange = valueRange,
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = title },
-            )
         }
     }
 }
@@ -271,6 +327,7 @@ fun <T> SettingsChoiceDialog(
 fun ExpressiveActionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    shape: Shape = MaterialTheme.shapes.large,
     content: @Composable () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -288,8 +345,8 @@ fun ExpressiveActionCard(
                 scaleX = scale
                 scaleY = scale
             },
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceBright,
+        shape = shape,
+        color = MaterialTheme.colorScheme.surfaceContainer,
         interactionSource = interaction,
         content = content,
     )

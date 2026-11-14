@@ -9,4 +9,6 @@
     <string name="panel_gauge_battery">Battery</string>
     <string name="panel_gauge_temp">Temp</string>
     <string name="panel_auto_brightness">Auto brightness</string>
+    <string name="game_driver_summary">%1$s driver</string>
+    <string name="icon_idle_opacity_summary">How visible the edge tab stays while you play</string>
 </resources>
