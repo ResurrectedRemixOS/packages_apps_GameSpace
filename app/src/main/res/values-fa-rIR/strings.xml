@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">شناسایی خودکار بازی</string>
     <string name="auto_game_detect_summary">افزودن خودکار برنامه‌هایی که توسط توسعه‌دهنده به عنوان بازی علامت‌گذاری شده‌اند</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">غیرفعال‌سازی لرزش بیس پالس</string>
-    <string name="pulse_bass_haptics_disabled_summary">غیرفعال‌سازی خودکار لرزش بیس پالس در صورت روشن بودن</string>
 </resources>

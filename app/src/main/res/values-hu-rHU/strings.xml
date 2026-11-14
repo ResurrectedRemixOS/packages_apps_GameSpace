@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">Automatikus játékészlelés</string>
     <string name="auto_game_detect_summary">A fejlesztő által játékként megjelölt alkalmazások automatikus hozzáadása</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">Pulzáló basszus haptikus jelzések letiltása</string>
-    <string name="pulse_bass_haptics_disabled_summary">A pulzáló basszus haptikus hangjának automatikus letiltása, ha engedélyezve van</string>
 </resources>

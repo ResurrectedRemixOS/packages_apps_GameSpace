@@ -150,18 +150,5 @@ class SystemSettings @Inject constructor(
             )
         }
 
-    var pulseBassHaptics
-        get() =
-            Settings.Secure.getIntForUser(
-                resolver, Settings.Secure.PULSE_BASS_HAPTICS, 0,
-                UserHandle.USER_CURRENT
-            )
-        set(value) {
-            Settings.Secure.putIntForUser(
-                resolver, Settings.Secure.PULSE_BASS_HAPTICS,
-                value, UserHandle.USER_CURRENT
-            )
-        }
-
     private fun Boolean.toInt() = if (this) 1 else 0
 }

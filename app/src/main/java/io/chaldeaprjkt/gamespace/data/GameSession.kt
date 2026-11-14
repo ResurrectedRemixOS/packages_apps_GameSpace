@@ -61,7 +61,6 @@ class GameSession @Inject constructor(
             headsup = systemSettings.headsup,
             threeScreenshot = systemSettings.threeScreenshot,
             ringerMode = audioManager.ringerModeInternal,
-            pulseBassHaptics = systemSettings.pulseBassHaptics,
             doubleTapToSleep =
                 if (appSettings.noDoubleTapToSleep) systemSettings.doubleTapToSleep else null,
         )
@@ -83,9 +82,6 @@ class GameSession @Inject constructor(
         if (appSettings.stayAwake) {
             systemSettings.stayAwake = true
         }
-        if (appSettings.noPulseBassHaptics) {
-            systemSettings.pulseBassHaptics = 0
-        }
     }
 
     fun unregister() {
@@ -102,9 +98,6 @@ class GameSession @Inject constructor(
         orig.doubleTapToSleep?.let { systemSettings.doubleTapToSleep = it }
         if (appSettings.ringerMode != 3) {
             audioManager.ringerModeInternal = orig.ringerMode
-        }
-        if (appSettings.noPulseBassHaptics) {
-            systemSettings.pulseBassHaptics = orig.pulseBassHaptics
         }
         systemSettings.stayAwake = false
         state = null

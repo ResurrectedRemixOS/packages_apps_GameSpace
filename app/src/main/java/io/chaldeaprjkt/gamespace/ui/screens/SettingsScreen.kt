@@ -418,14 +418,6 @@ private fun OptionsPage(
                     viewModel.noDoubleTapToSleep,
                     viewModel::updateNoDoubleTapToSleep,
                 )
-                if (viewModel.hasVibrator) {
-                    SettingsToggle(
-                        stringResource(R.string.pulse_bass_haptics_disabled_title),
-                        stringResource(R.string.pulse_bass_haptics_disabled_summary),
-                        viewModel.noPulseBassHaptics,
-                        viewModel::updateNoPulseBassHaptics,
-                    )
-                }
             }
         }
         item(key = "sidebar") {

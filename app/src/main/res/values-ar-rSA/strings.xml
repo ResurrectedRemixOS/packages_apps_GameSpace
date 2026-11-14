@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">الكشف التلقائي للعبة</string>
     <string name="auto_game_detect_summary">إضافة تطبيقات تم تحديدها كألعاب من قبل مطوري هذه التطبيقات تلقائياً</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">تعطيل قواعد النبض اللمس</string>
-    <string name="pulse_bass_haptics_disabled_summary">تعطيل قواعد النبض تلقائياً في حالة التمكين</string>
 </resources>

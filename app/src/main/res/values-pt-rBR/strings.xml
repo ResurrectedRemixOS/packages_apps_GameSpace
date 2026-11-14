@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">Detecção automática de jogo</string>
     <string name="auto_game_detect_summary">Adicionar automaticamente aplicativos marcados como jogos pelo desenvolvedor</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">Desativar pulsações com base nos cartões</string>
-    <string name="pulse_bass_haptics_disabled_summary">Desativar bússola fundida automaticamente se ativado</string>
 </resources>

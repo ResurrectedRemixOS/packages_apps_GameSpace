@@ -149,7 +149,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">自動ゲーム検出</string>
     <string name="auto_game_detect_summary">開発者によってゲームとしてマークされたアプリを自動的に追加</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">低音ハプティクスを無効</string>
-    <string name="pulse_bass_haptics_disabled_summary">有効な場合は自動的に低音ハプティクスを無効にする</string>
 </resources>

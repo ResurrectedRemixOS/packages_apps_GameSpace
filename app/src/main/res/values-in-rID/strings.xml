@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">Deteksi game otomatis</string>
     <string name="auto_game_detect_summary">Secara otomatis menambahkan aplikasi yang ditandai sebagai game oleh pengembangnya</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">Nonaktifkan denyut haptik bass</string>
-    <string name="pulse_bass_haptics_disabled_summary">Secara otomatis menonaktifkan denyut haptik bass jika diaktifkan</string>
 </resources>

@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">Автоопределение игры</string>
     <string name="auto_game_detect_summary">Автоматически добавлять приложения, отмеченные разработчиками как игры</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">Отключить пульсирующую басовую вибрацию</string>
-    <string name="pulse_bass_haptics_disabled_summary">Автоматически отключать пульсирующую басовую вибрацию, если включена</string>
 </resources>

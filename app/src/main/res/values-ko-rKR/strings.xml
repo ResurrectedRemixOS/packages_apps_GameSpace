@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">게임 자동 감지</string>
     <string name="auto_game_detect_summary">개발자가 게임으로 분류한 앱을 자동으로 추가</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">펄스 베이스 햅틱 비활성화</string>
-    <string name="pulse_bass_haptics_disabled_summary">활성화되어 있을 경우 펄스 베이스 햅틱을 자동으로 비활성화합니다</string>
 </resources>

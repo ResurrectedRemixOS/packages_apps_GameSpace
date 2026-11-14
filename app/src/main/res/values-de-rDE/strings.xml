@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">Auto-Spielerkennung</string>
     <string name="auto_game_detect_summary">Füge automatisch Spiele hinzu, die von ihrem Entwickler als Spiele markiert sind</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">Pulse-Bass-Haptik deaktivieren</string>
-    <string name="pulse_bass_haptics_disabled_summary">Deaktiviert die Pulse-Bass-Haptik automatisch, falls aktiv</string>
 </resources>

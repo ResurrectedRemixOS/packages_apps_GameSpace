@@ -178,9 +178,6 @@
     <string name="auto_game_detect_title">Auto game detection</string>
     <string name="auto_game_detect_summary">Automatically add apps marked as games by their developer</string>
 
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">Disable pulse bass haptics</string>
-    <string name="pulse_bass_haptics_disabled_summary">Automatically disable pulse bass haptics if enabled</string>
      <!-- Crosshair -->
     <string name="crosshair_settings_title">Custom Crosshair</string>
     <string name="crosshair_settings_summary">Show centered custom aiming reticle overlays on screen</string>

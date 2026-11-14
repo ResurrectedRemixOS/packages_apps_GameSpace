@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">Détection automatique du jeu</string>
     <string name="auto_game_detect_summary">Ajouter automatiquement les applications marquées comme jeux par leur développeur</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">Désactiver l\'impulsion tactile des basses</string>
-    <string name="pulse_bass_haptics_disabled_summary">Désactiver automatiquement les tactiques de basse-basse si activée</string>
 </resources>

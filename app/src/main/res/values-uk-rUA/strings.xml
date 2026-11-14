@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">Автовизначення гри</string>
     <string name="auto_game_detect_summary">Автоматично додавати додатки, позначені як ігри їх розробником</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">Вимкнути пульсуючі бази по тактилі</string>
-    <string name="pulse_bass_haptics_disabled_summary">Автоматично відключити пульсацію, якщо ввімкнено</string>
 </resources>

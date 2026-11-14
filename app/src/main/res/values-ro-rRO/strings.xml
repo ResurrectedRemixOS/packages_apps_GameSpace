@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">Detectare automată a jocurilor</string>
     <string name="auto_game_detect_summary">Adaugă automat aplicațiile marcate ca jocuri de către dezvoltatorul lor</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">Dezactivare haptics puls bas</string>
-    <string name="pulse_bass_haptics_disabled_summary">Dezactivează automat bass haptics dacă este activat</string>
 </resources>

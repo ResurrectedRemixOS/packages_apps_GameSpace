@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">Automatyczne wykrywanie gier</string>
     <string name="auto_game_detect_summary">Automatycznie dodawaj aplikacje oznaczone jako gry przez programistę</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">Wyłącz wibracje basowe</string>
-    <string name="pulse_bass_haptics_disabled_summary">Automatycznie wyłącz funkcję wibracji basowej, jeśli jest włączona</string>
 </resources>

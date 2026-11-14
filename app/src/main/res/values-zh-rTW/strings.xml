@@ -148,7 +148,4 @@
     <!-- Game auto-detect -->
     <string name="auto_game_detect_title">遊戲自動偵測</string>
     <string name="auto_game_detect_summary">自動新增開發者標記為遊戲的應用程式</string>
-    <!-- Pulse bass haptics -->
-    <string name="pulse_bass_haptics_disabled_title">停用重低音脈衝觸覺回饋</string>
-    <string name="pulse_bass_haptics_disabled_summary">若已啟用，則自動停用重低音震動回饋</string>
 </resources>

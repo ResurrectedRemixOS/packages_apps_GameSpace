@@ -17,7 +17,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemProperties
 import android.os.UserHandle
-import android.os.Vibrator
 import android.provider.Settings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -126,15 +125,10 @@ constructor(
         Build.MANUFACTURER.equals("Google", ignoreCase = true) ||
             SystemProperties.getBoolean("persist.sys.battery_bypass_supported", false)
 
-    val hasVibrator = context.getSystemService(Vibrator::class.java)?.hasVibrator() == true
-
     var autoGameDetect by mutableStateOf(systemSettings.autoGameDetect)
         private set
 
     var lockGesture by mutableStateOf(appSettings.lockGesture)
-        private set
-
-    var noPulseBassHaptics by mutableStateOf(appSettings.noPulseBassHaptics)
         private set
 
     var memoryManagement by mutableStateOf(gameOptimization.isMemoryManagementEnabled)
@@ -209,7 +203,6 @@ constructor(
         crosshairOffsetY = appSettings.crosshairOffsetY
         autoGameDetect = systemSettings.autoGameDetect
         lockGesture = appSettings.lockGesture
-        noPulseBassHaptics = appSettings.noPulseBassHaptics
         memoryManagement = gameOptimization.isMemoryManagementEnabled
         cacheManagement = gameOptimization.isCacheManagementEnabled
     }
@@ -222,11 +215,6 @@ constructor(
     fun updateLockGesture(enabled: Boolean) {
         appSettings.lockGesture = enabled
         lockGesture = enabled
-    }
-
-    fun updateNoPulseBassHaptics(disabled: Boolean) {
-        appSettings.noPulseBassHaptics = disabled
-        noPulseBassHaptics = disabled
     }
 
     fun updateMemoryManagement(enabled: Boolean) {
